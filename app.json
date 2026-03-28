@@ -1,0 +1,49 @@
+{
+  "expo": {
+    "name": "Appreton",
+    "slug": "Appreton",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#8B6914"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.appreton.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#8B6914"
+      },
+      "package": "com.appreton.app",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Appreton necesita tu ubicacion para encontrar banos cercanos."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Appreton necesita acceso a tus fotos para subir imagenes de los banos.",
+          "cameraPermission": "Appreton necesita acceso a la camara para tomar fotos de los banos."
+        }
+      ]
+    ]
+  }
+}
