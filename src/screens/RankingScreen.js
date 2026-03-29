@@ -5,23 +5,75 @@ import {
   FlatList,
   StyleSheet,
   SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import * as Location from 'expo-location';
 import { getPlaces } from '../data/store';
 import PoopRating from '../components/PoopRating';
 
+// Haversine formula - distance in km
+function getDistanceKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 export default function RankingScreen() {
-  const [places, setPlaces] = useState([]);
+  const [nearbyPlaces, setNearbyPlaces] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [locationError, setLocationError] = useState(null);
 
   useFocusEffect(
     useCallback(() => {
-      loadPlaces();
+      loadNearbyRanking();
     }, [])
   );
 
-  async function loadPlaces() {
-    const data = await getPlaces();
-    setPlaces(data.filter((p) => p.reviewCount > 0).sort((a, b) => b.avgRating - a.avgRating));
+  async function loadNearbyRanking() {
+    try {
+      setLoading(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setLocationError('Activa la ubicacion para ver el ranking cercano');
+        setLoading(false);
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const userLat = location.coords.latitude;
+      const userLon = location.coords.longitude;
+
+      const allPlaces = await getPlaces();
+
+      // Calculate distance, filter < 1km, sort by rating
+      const nearby = allPlaces
+        .map((p) => {
+          const distKm = getDistanceKm(userLat, userLon, p.latitude, p.longitude);
+          const distMeters = Math.round(distKm * 1000);
+          return { ...p, distMeters };
+        })
+        .filter((p) => p.distMeters <= 1000)
+        .filter((p) => p.reviewCount > 0)
+        .sort((a, b) => b.avgRating - a.avgRating);
+
+      setNearbyPlaces(nearby);
+      setLocationError(null);
+    } catch {
+      setLocationError('No se pudo obtener la ubicacion');
+    } finally {
+      setLoading(false);
+    }
   }
 
   const renderItem = ({ item, index }) => (
@@ -36,9 +88,14 @@ export default function RankingScreen() {
         <Text style={styles.address}>{item.address}</Text>
         <PoopRating rating={item.avgRating} size={16} readonly />
       </View>
-      <View style={styles.score}>
-        <Text style={styles.scoreText}>{item.avgRating.toFixed(1)}</Text>
-        <Text style={styles.scoreLabel}>💩</Text>
+      <View style={styles.scoreColumn}>
+        <View style={styles.score}>
+          <Text style={styles.scoreText}>{item.avgRating.toFixed(1)}</Text>
+          <Text style={styles.scoreLabel}>💩</Text>
+        </View>
+        <View style={styles.distanceBadge}>
+          <Text style={styles.distanceText}>{item.distMeters} m</Text>
+        </View>
       </View>
     </View>
   );
@@ -46,22 +103,35 @@ export default function RankingScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <Text style={styles.title}>🏆 Ranking</Text>
-        <Text style={styles.subtitle}>Los banos mas limpios</Text>
+        <Text style={styles.title}>🏆 Ranking cercano</Text>
+        <Text style={styles.subtitle}>Los mejores banos a menos de 1 km</Text>
       </View>
-      <FlatList
-        data={places}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>🏆</Text>
-            <Text style={styles.emptyText}>Aun no hay ranking</Text>
-            <Text style={styles.emptySubtext}>Opina sobre los sitios para crear el ranking</Text>
-          </View>
-        }
-      />
+
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#8B6914" />
+          <Text style={styles.loadingText}>Buscando banos cerca de ti...</Text>
+        </View>
+      ) : locationError ? (
+        <View style={styles.empty}>
+          <Text style={styles.emptyIcon}>📍</Text>
+          <Text style={styles.emptyText}>{locationError}</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={nearbyPlaces}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Text style={styles.emptyIcon}>🚽</Text>
+              <Text style={styles.emptyText}>No hay banos valorados a menos de 1 km</Text>
+              <Text style={styles.emptySubtext}>Anade sitios cercanos y opina sobre ellos</Text>
+            </View>
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -85,6 +155,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#F5DEB3',
     marginTop: 2,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 15,
+    color: '#8B6914',
   },
   list: {
     paddingVertical: 10,
@@ -127,9 +207,13 @@ const styles = StyleSheet.create({
     color: '#999',
     marginBottom: 4,
   },
-  score: {
+  scoreColumn: {
     alignItems: 'center',
     marginLeft: 8,
+  },
+  score: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   scoreText: {
     fontSize: 22,
@@ -138,6 +222,19 @@ const styles = StyleSheet.create({
   },
   scoreLabel: {
     fontSize: 14,
+    marginLeft: 2,
+  },
+  distanceBadge: {
+    backgroundColor: '#EBF5FB',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+    marginTop: 4,
+  },
+  distanceText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2980B9',
   },
   empty: {
     alignItems: 'center',
@@ -150,6 +247,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#666',
     marginTop: 16,
+    textAlign: 'center',
+    paddingHorizontal: 30,
   },
   emptySubtext: {
     fontSize: 14,
