@@ -9,20 +9,20 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk",
-        "image": "sdk-51"
+        "image": "default"
       }
     },
     "preview": {
       "distribution": "internal",
       "android": {
         "buildType": "apk",
-        "image": "sdk-51"
+        "image": "default"
       }
     },
     "production": {
       "android": {
         "buildType": "app-bundle",
-        "image": "sdk-51"
+        "image": "default"
       }
     }
   },
