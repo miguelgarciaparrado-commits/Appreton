@@ -46,6 +46,10 @@ export default function PlaceDetailScreen({ route, navigation }) {
   const brushPercent = totalReviews
     ? Math.round((reviews.filter((r) => r.hasBrush).length / totalReviews) * 100)
     : 0;
+  const orderReviews = reviews.filter((r) => r.requiredOrder != null);
+  const orderPercent = orderReviews.length
+    ? Math.round((orderReviews.filter((r) => r.requiredOrder).length / orderReviews.length) * 100)
+    : null;
 
   const renderHeader = () => (
     <View>
@@ -65,6 +69,9 @@ export default function PlaceDetailScreen({ route, navigation }) {
           <AmenityBar label="🧻 Papel" percent={paperPercent} />
           <AmenityBar label="🧴 Jabon" percent={soapPercent} />
           <AmenityBar label="🪥 Escobilla" percent={brushPercent} />
+          {orderPercent != null && (
+            <AmenityBar label="🍺 Piden consumir" percent={orderPercent} />
+          )}
         </View>
       )}
 

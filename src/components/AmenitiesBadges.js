@@ -7,6 +7,14 @@ export default function AmenitiesBadges({ review }) {
       <Badge label="🧻 Papel" active={review.hasPaper} />
       <Badge label="🧴 Jabon" active={review.hasSoap} />
       <Badge label="🪥 Escobilla" active={review.hasBrush} />
+      {review.requiredOrder != null && (
+        <Badge
+          label={review.requiredOrder ? '🍺 Consumicion obligatoria' : '🆓 Sin consumicion'}
+          active={!review.requiredOrder}
+          isExtra={review.requiredOrder}
+          isOrder
+        />
+      )}
       {review.extras &&
         review.extras.map((extra, i) => (
           <Badge key={i} label={`✨ ${extra}`} active={true} isExtra />

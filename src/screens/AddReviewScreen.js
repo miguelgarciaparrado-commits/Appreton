@@ -22,6 +22,7 @@ export default function AddReviewScreen({ route, navigation }) {
   const [hasPaper, setHasPaper] = useState(false);
   const [hasSoap, setHasSoap] = useState(false);
   const [hasBrush, setHasBrush] = useState(false);
+  const [requiredOrder, setRequiredOrder] = useState(null); // null = not answered, true = yes, false = no
   const [extras, setExtras] = useState([]);
   const [newExtra, setNewExtra] = useState('');
 
@@ -54,6 +55,7 @@ export default function AddReviewScreen({ route, navigation }) {
       hasPaper,
       hasSoap,
       hasBrush,
+      requiredOrder,
       extras,
     });
 
@@ -138,6 +140,42 @@ export default function AddReviewScreen({ route, navigation }) {
                 trackColor={{ false: '#DDD', true: '#8B6914' }}
                 thumbColor={hasBrush ? '#FFF' : '#FFF'}
               />
+            </View>
+          </View>
+
+          {/* Required order */}
+          <View style={styles.section}>
+            <Text style={styles.label}>Consumicion obligatoria</Text>
+            <Text style={styles.hint}>Te obligaron a pedir algo para usar el bano?</Text>
+            <View style={styles.orderRow}>
+              <TouchableOpacity
+                style={[
+                  styles.orderBtn,
+                  requiredOrder === true && styles.orderBtnYes,
+                ]}
+                onPress={() => setRequiredOrder(true)}
+              >
+                <Text style={[
+                  styles.orderBtnText,
+                  requiredOrder === true && styles.orderBtnTextActive,
+                ]}>
+                  🍺 Si, tuve que pedir
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.orderBtn,
+                  requiredOrder === false && styles.orderBtnNo,
+                ]}
+                onPress={() => setRequiredOrder(false)}
+              >
+                <Text style={[
+                  styles.orderBtnText,
+                  requiredOrder === false && styles.orderBtnTextActive,
+                ]}>
+                  🆓 No, libre acceso
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -248,6 +286,35 @@ const styles = StyleSheet.create({
   },
   switchLabel: {
     fontSize: 16,
+    color: '#2C3E50',
+  },
+  orderRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  orderBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#DDD',
+    backgroundColor: '#FFF',
+    alignItems: 'center',
+  },
+  orderBtnYes: {
+    backgroundColor: '#FDEDEC',
+    borderColor: '#E74C3C',
+  },
+  orderBtnNo: {
+    backgroundColor: '#D5F5E3',
+    borderColor: '#27AE60',
+  },
+  orderBtnText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '600',
+  },
+  orderBtnTextActive: {
     color: '#2C3E50',
   },
   extraInputRow: {
