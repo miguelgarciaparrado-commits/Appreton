@@ -9,7 +9,7 @@ export default function AmenitiesBadges({ review }) {
       <Badge label="🪥 Escobilla" active={review.hasBrush} />
       {review.requiredOrder != null && (
         <Badge
-          label={review.requiredOrder ? '🍺 Consumicion obligatoria' : '🆓 Sin consumicion'}
+          label={review.requiredOrder ? '🍺 Me toco pedir' : '🆓 Entre sin pedir nada'}
           active={!review.requiredOrder}
           isExtra={review.requiredOrder}
           isOrder

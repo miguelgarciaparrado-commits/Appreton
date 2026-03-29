@@ -159,7 +159,7 @@ export default function AddReviewScreen({ route, navigation }) {
                   styles.orderBtnText,
                   requiredOrder === true && styles.orderBtnTextActive,
                 ]}>
-                  🍺 Si, tuve que pedir
+                  🍺 Me toco pedir consumicion
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -173,7 +173,7 @@ export default function AddReviewScreen({ route, navigation }) {
                   styles.orderBtnText,
                   requiredOrder === false && styles.orderBtnTextActive,
                 ]}>
-                  🆓 No, libre acceso
+                  🆓 Pude entrar y salir sin pedir nada
                 </Text>
               </TouchableOpacity>
             </View>
