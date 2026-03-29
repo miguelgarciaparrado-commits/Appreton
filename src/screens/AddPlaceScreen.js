@@ -10,7 +10,9 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
+import * as Location from 'expo-location';
 import { addPlace } from '../data/store';
 
 const PLACE_TYPES = [
@@ -26,6 +28,32 @@ export default function AddPlaceScreen({ navigation }) {
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [type, setType] = useState('');
+  const [useLocation, setUseLocation] = useState(false);
+  const [gettingLocation, setGettingLocation] = useState(false);
+  const [coords, setCoords] = useState(null);
+
+  async function captureLocation() {
+    try {
+      setGettingLocation(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permiso denegado', 'Necesitamos tu ubicacion para marcar el sitio en el mapa');
+        return;
+      }
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+      setCoords({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+      setUseLocation(true);
+    } catch {
+      Alert.alert('Error', 'No se pudo obtener la ubicacion');
+    } finally {
+      setGettingLocation(false);
+    }
+  }
 
   async function handleSubmit() {
     if (!name.trim()) {
@@ -45,8 +73,8 @@ export default function AddPlaceScreen({ navigation }) {
       name: name.trim(),
       address: address.trim(),
       type,
-      latitude: 40.4168 + (Math.random() - 0.5) * 0.1,
-      longitude: -3.7038 + (Math.random() - 0.5) * 0.1,
+      latitude: coords ? coords.latitude : 40.4168 + (Math.random() - 0.5) * 0.1,
+      longitude: coords ? coords.longitude : -3.7038 + (Math.random() - 0.5) * 0.1,
     });
 
     Alert.alert('Sitio anadido! 🚽', 'Ya puedes dejar tu opinion', [
@@ -106,6 +134,29 @@ export default function AddPlaceScreen({ navigation }) {
                 </TouchableOpacity>
               ))}
             </View>
+          </View>
+
+          {/* Location button */}
+          <View style={styles.section}>
+            <Text style={styles.label}>Ubicacion</Text>
+            <TouchableOpacity
+              style={[styles.locationBtn, useLocation && styles.locationBtnActive]}
+              onPress={captureLocation}
+              disabled={gettingLocation}
+            >
+              {gettingLocation ? (
+                <ActivityIndicator size="small" color="#8B6914" />
+              ) : (
+                <Text style={styles.locationBtnText}>
+                  {useLocation
+                    ? '📍 Ubicacion capturada!'
+                    : '📍 Usar mi ubicacion actual'}
+                </Text>
+              )}
+            </TouchableOpacity>
+            <Text style={styles.locationHint}>
+              Pulsa para guardar la ubicacion exacta del sitio
+            </Text>
           </View>
 
           <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit}>
@@ -176,6 +227,31 @@ const styles = StyleSheet.create({
   typeTextActive: {
     color: '#FFF',
     fontWeight: '600',
+  },
+  locationBtn: {
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#8B6914',
+    borderStyle: 'dashed',
+  },
+  locationBtnActive: {
+    backgroundColor: '#D5F5E3',
+    borderColor: '#27AE60',
+    borderStyle: 'solid',
+  },
+  locationBtnText: {
+    fontSize: 16,
+    color: '#2C3E50',
+    fontWeight: '600',
+  },
+  locationHint: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 6,
+    textAlign: 'center',
   },
   submitBtn: {
     backgroundColor: '#8B6914',

@@ -27,6 +27,11 @@ export default function PlaceCard({ place, onPress }) {
         <View style={[styles.typeBadge, { backgroundColor: TYPE_COLORS[place.type] || '#95A5A6' }]}>
           <Text style={styles.typeText}>{TYPE_LABELS[place.type] || '🏢 Otro'}</Text>
         </View>
+        {place.distanceText && (
+          <View style={styles.distanceBadge}>
+            <Text style={styles.distanceText}>📍 {place.distanceText}</Text>
+          </View>
+        )}
       </View>
       <Text style={styles.name}>{place.name}</Text>
       <Text style={styles.address}>{place.address}</Text>
@@ -87,6 +92,17 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 14,
     color: '#8B6914',
+    fontWeight: '600',
+  },
+  distanceBadge: {
+    backgroundColor: '#EBF5FB',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  distanceText: {
+    color: '#2980B9',
+    fontSize: 12,
     fontWeight: '600',
   },
 });
