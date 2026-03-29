@@ -17,7 +17,6 @@ const TYPE_LABELS = {
   restaurante: '🍽️ Restaurante',
   gasolinera: '⛽ Gasolinera',
   centro_comercial: '🛒 Centro Comercial',
-  cafeteria: '☕ Cafeteria',
   otro: '🏢 Otro',
 };
 
