@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { addXpToUser, getCurrentUser } from './auth';
 
 const PLACES_KEY = '@appreton_places';
 const REVIEWS_KEY = '@appreton_reviews';
@@ -168,10 +169,12 @@ export async function addPlace(place) {
 
 export async function addReview(review) {
   const reviews = await getReviews();
+  const currentUser = await getCurrentUser();
   const newReview = {
     ...review,
     id: Date.now().toString(),
     date: new Date().toISOString().split('T')[0],
+    userId: currentUser ? currentUser.id : null,
   };
   reviews.push(newReview);
   await AsyncStorage.setItem(REVIEWS_KEY, JSON.stringify(reviews));
@@ -187,6 +190,9 @@ export async function addReview(review) {
     places[placeIndex].reviewCount = placeReviews.length;
     await AsyncStorage.setItem(PLACES_KEY, JSON.stringify(places));
   }
+
+  // Award XP to the current user
+  await addXpToUser();
 
   return newReview;
 }

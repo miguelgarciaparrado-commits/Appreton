@@ -1,14 +1,19 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Text } from 'react-native';
+import { Text, ActivityIndicator, View } from 'react-native';
 
 import HomeScreen from './src/screens/HomeScreen';
 import PlaceDetailScreen from './src/screens/PlaceDetailScreen';
 import AddReviewScreen from './src/screens/AddReviewScreen';
 import AddPlaceScreen from './src/screens/AddPlaceScreen';
 import RankingScreen from './src/screens/RankingScreen';
+import LoginScreen from './src/screens/LoginScreen';
+import ProfileSetupScreen from './src/screens/ProfileSetupScreen';
+import ProfileScreen from './src/screens/ProfileScreen';
+import AppretoneroRankingScreen from './src/screens/AppretoneroRankingScreen';
+import { getCurrentUser } from './src/data/auth';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -44,6 +49,64 @@ function TabIcon({ emoji, focused }) {
 }
 
 export default function App() {
+  const [authState, setAuthState] = useState('loading'); // 'loading' | 'login' | 'setup' | 'app'
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  async function checkAuth() {
+    try {
+      const currentUser = await getCurrentUser();
+      if (!currentUser) {
+        setAuthState('login');
+      } else if (!currentUser.profileCompleted) {
+        setUser(currentUser);
+        setAuthState('setup');
+      } else {
+        setUser(currentUser);
+        setAuthState('app');
+      }
+    } catch {
+      setAuthState('login');
+    }
+  }
+
+  function handleLogin(loggedInUser) {
+    setUser(loggedInUser);
+    setAuthState('setup');
+  }
+
+  function handleProfileComplete() {
+    setAuthState('app');
+  }
+
+  function handleLogout() {
+    setUser(null);
+    setAuthState('login');
+  }
+
+  function handleEditProfile() {
+    setAuthState('setup');
+  }
+
+  if (authState === 'loading') {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F5F0E1' }}>
+        <ActivityIndicator size="large" color="#8B6914" />
+      </View>
+    );
+  }
+
+  if (authState === 'login') {
+    return <LoginScreen onLogin={handleLogin} />;
+  }
+
+  if (authState === 'setup') {
+    return <ProfileSetupScreen onComplete={handleProfileComplete} />;
+  }
+
   return (
     <NavigationContainer>
       <Tab.Navigator
@@ -68,7 +131,7 @@ export default function App() {
           component={HomeStack}
           options={{
             headerShown: false,
-            tabBarIcon: ({ focused }) => <TabIcon emoji="🚽" focused={focused} />,
+            tabBarIcon: ({ focused }) => <TabIcon emoji={'\uD83D\uDEBD'} focused={focused} />,
           }}
         />
         <Tab.Screen
@@ -76,17 +139,40 @@ export default function App() {
           component={AddPlaceScreen}
           options={{
             title: 'Anadir sitio',
-            tabBarIcon: ({ focused }) => <TabIcon emoji="➕" focused={focused} />,
+            tabBarIcon: ({ focused }) => <TabIcon emoji={'\u2795'} focused={focused} />,
           }}
         />
         <Tab.Screen
-          name="Ranking"
+          name="Banos"
           component={RankingScreen}
           options={{
             headerShown: false,
-            tabBarIcon: ({ focused }) => <TabIcon emoji="🏆" focused={focused} />,
+            tabBarLabel: 'Banos',
+            tabBarIcon: ({ focused }) => <TabIcon emoji={'\uD83C\uDFC6'} focused={focused} />,
           }}
         />
+        <Tab.Screen
+          name="Appretoneros"
+          component={AppretoneroRankingScreen}
+          options={{
+            headerShown: false,
+            tabBarIcon: ({ focused }) => <TabIcon emoji={'\uD83D\uDCA9'} focused={focused} />,
+          }}
+        />
+        <Tab.Screen
+          name="Perfil"
+          options={{
+            headerShown: false,
+            tabBarIcon: ({ focused }) => <TabIcon emoji={'\uD83D\uDC64'} focused={focused} />,
+          }}
+        >
+          {() => (
+            <ProfileScreen
+              onLogout={handleLogout}
+              onEditProfile={handleEditProfile}
+            />
+          )}
+        </Tab.Screen>
       </Tab.Navigator>
     </NavigationContainer>
   );
