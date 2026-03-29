@@ -128,7 +128,7 @@ export default function HomeScreen({ navigation }) {
       <StatusBar backgroundColor="#8B6914" barStyle="light-content" />
       <View style={styles.header}>
         <Text style={styles.logo}>💩 Appreton</Text>
-        <Text style={styles.subtitle}>Encuentra el bano perfecto</Text>
+        <Text style={styles.subtitle}>Te cagas? abreme</Text>
       </View>
 
       {/* Location status */}
