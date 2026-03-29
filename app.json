@@ -21,11 +21,17 @@
         "backgroundColor": "#8B6914"
       },
       "package": "com.appreton.app",
+      "versionCode": 1,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "CAMERA"
       ]
+    },
+    "extra": {
+      "eas": {
+        "projectId": ""
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
