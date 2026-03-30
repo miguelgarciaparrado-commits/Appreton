@@ -1,8 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from './supabase';
 
 const AUTH_USER_KEY = '@appreton_auth_user';
-const ALL_USERS_KEY = '@appreton_all_users';
-const REGISTERED_USERS_KEY = '@appreton_registered_users';
 
 // Level definitions
 const LEVELS = [
@@ -15,114 +14,6 @@ const LEVELS = [
 ];
 
 const XP_PER_REVIEW = 50;
-
-// Sample users for the ranking
-const SAMPLE_USERS = [
-  {
-    id: 'sample_1',
-    displayName: 'CacaMaster2000',
-    email: 'caca@mail.com',
-    provider: 'email',
-    avatarType: 'poop_3',
-    customAvatarUri: null,
-    level: 6,
-    xp: 2350,
-    totalReviews: 47,
-    joinDate: '2025-06-10',
-    isSample: true,
-  },
-  {
-    id: 'sample_2',
-    displayName: 'LaReinaDelBano',
-    email: 'reina@mail.com',
-    provider: 'google',
-    avatarType: 'poop_1',
-    customAvatarUri: null,
-    level: 5,
-    xp: 1450,
-    totalReviews: 29,
-    joinDate: '2025-08-22',
-    isSample: true,
-  },
-  {
-    id: 'sample_3',
-    displayName: 'InspectorRetrete',
-    email: 'inspector@mail.com',
-    provider: 'facebook',
-    avatarType: 'poop_5',
-    customAvatarUri: null,
-    level: 5,
-    xp: 1100,
-    totalReviews: 22,
-    joinDate: '2025-09-05',
-    isSample: true,
-  },
-  {
-    id: 'sample_4',
-    displayName: 'ElCriticoCagon',
-    email: 'critico@mail.com',
-    provider: 'apple',
-    avatarType: 'poop_2',
-    customAvatarUri: null,
-    level: 4,
-    xp: 750,
-    totalReviews: 15,
-    joinDate: '2025-10-12',
-    isSample: true,
-  },
-  {
-    id: 'sample_5',
-    displayName: 'TronoDeOro',
-    email: 'trono@mail.com',
-    provider: 'google',
-    avatarType: 'poop_6',
-    customAvatarUri: null,
-    level: 4,
-    xp: 550,
-    totalReviews: 11,
-    joinDate: '2025-11-01',
-    isSample: true,
-  },
-  {
-    id: 'sample_6',
-    displayName: 'BuscaBanos',
-    email: 'busca@mail.com',
-    provider: 'instagram',
-    avatarType: 'poop_4',
-    customAvatarUri: null,
-    level: 3,
-    xp: 300,
-    totalReviews: 6,
-    joinDate: '2025-12-15',
-    isSample: true,
-  },
-  {
-    id: 'sample_7',
-    displayName: 'NovataDelWC',
-    email: 'novata@mail.com',
-    provider: 'facebook',
-    avatarType: 'poop_1',
-    customAvatarUri: null,
-    level: 2,
-    xp: 150,
-    totalReviews: 3,
-    joinDate: '2026-01-20',
-    isSample: true,
-  },
-  {
-    id: 'sample_8',
-    displayName: 'PrimerizoCagon',
-    email: 'primerizo@mail.com',
-    provider: 'google',
-    avatarType: 'poop_3',
-    customAvatarUri: null,
-    level: 1,
-    xp: 50,
-    totalReviews: 1,
-    joinDate: '2026-03-01',
-    isSample: true,
-  },
-];
 
 export function getLevelInfo(xp) {
   let currentLevel = LEVELS[0];
@@ -154,7 +45,7 @@ export function getAllLevels() {
   return LEVELS;
 }
 
-// Get current logged-in user
+// Get current logged-in user (from local cache)
 export async function getCurrentUser() {
   try {
     const data = await AsyncStorage.getItem(AUTH_USER_KEY);
@@ -164,93 +55,85 @@ export async function getCurrentUser() {
   }
 }
 
-// Get all registered users
-async function getRegisteredUsers() {
-  try {
-    const data = await AsyncStorage.getItem(REGISTERED_USERS_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
+// Save user locally
+async function saveUserLocally(user) {
+  await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
 }
 
-// Save registered users
-async function saveRegisteredUsers(users) {
-  await AsyncStorage.setItem(REGISTERED_USERS_KEY, JSON.stringify(users));
-}
-
-// Register a new user with email and password
+// Register with email and password
 export async function registerWithEmail(email, password) {
-  const users = await getRegisteredUsers();
+  // Check if email already exists in Supabase
+  const { data: existing } = await supabase
+    .from('users')
+    .select('id')
+    .eq('email', email.toLowerCase())
+    .single();
 
-  // Check if email already exists
-  const existing = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
   if (existing) {
     throw new Error('Ya existe una cuenta con este email');
   }
 
-  const userId = 'user_' + Date.now().toString();
-  const user = {
-    id: userId,
-    displayName: '',
-    email: email.toLowerCase(),
-    password, // stored locally only
-    provider: 'email',
-    avatarType: 'poop_1',
-    customAvatarUri: null,
-    level: 1,
-    xp: 0,
-    totalReviews: 0,
-    joinDate: new Date().toISOString().split('T')[0],
-    profileCompleted: false,
-  };
+  const { data, error } = await supabase
+    .from('users')
+    .insert({
+      email: email.toLowerCase(),
+      password,
+      provider: 'email',
+      avatar_type: 'poop_1',
+      xp: 0,
+      total_reviews: 0,
+      profile_completed: false,
+    })
+    .select()
+    .single();
 
-  users.push(user);
-  await saveRegisteredUsers(users);
-  await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
-  await addOrUpdateUserInList(user);
+  if (error) throw new Error('Error al crear la cuenta: ' + error.message);
+
+  const user = mapDbUser(data);
+  await saveUserLocally(user);
   return user;
 }
 
 // Login with email and password
 export async function loginWithEmail(email, password) {
-  const users = await getRegisteredUsers();
-  const user = users.find(
-    (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password
-  );
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('email', email.toLowerCase())
+    .eq('password', password)
+    .single();
 
-  if (!user) {
+  if (error || !data) {
     throw new Error('Email o contrasena incorrectos');
   }
 
-  await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+  const user = mapDbUser(data);
+  await saveUserLocally(user);
   return user;
 }
 
-// Register/login with social provider (simulated OAuth)
+// Login with social provider (simulated)
 export async function loginWithProvider(provider) {
-  const userId = 'user_' + Date.now().toString();
-  const user = {
-    id: userId,
-    displayName: '',
-    email: `${provider}_user_${Date.now()}@appreton.app`,
-    provider,
-    avatarType: 'poop_1',
-    customAvatarUri: null,
-    level: 1,
-    xp: 0,
-    totalReviews: 0,
-    joinDate: new Date().toISOString().split('T')[0],
-    profileCompleted: false,
-  };
+  const email = `${provider}_${Date.now()}@appreton.app`;
 
-  // Save as registered user too
-  const users = await getRegisteredUsers();
-  users.push({ ...user, password: null });
-  await saveRegisteredUsers(users);
+  const { data, error } = await supabase
+    .from('users')
+    .insert({
+      email,
+      password: 'social_' + Date.now(),
+      provider,
+      avatar_type: 'poop_1',
+      xp: 0,
+      total_reviews: 0,
+      profile_completed: false,
+    })
+    .select()
+    .single();
 
-  await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
-  await addOrUpdateUserInList(user);
+  if (error) throw new Error('Error al conectar con ' + provider);
+
+  const user = mapDbUser(data);
+  await saveUserLocally(user);
   return user;
 }
 
@@ -258,21 +141,31 @@ export async function loginWithProvider(provider) {
 export async function saveUserProfile(updates) {
   const user = await getCurrentUser();
   if (!user) return null;
-  const updated = { ...user, ...updates };
-  // Recalculate level from XP
-  const levelInfo = getLevelInfo(updated.xp);
-  updated.level = levelInfo.level;
-  await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(updated));
-  await addOrUpdateUserInList(updated);
 
-  // Also update in registered users
-  const users = await getRegisteredUsers();
-  const idx = users.findIndex((u) => u.id === updated.id);
-  if (idx !== -1) {
-    users[idx] = { ...users[idx], ...updates, level: updated.level };
-    await saveRegisteredUsers(users);
+  const dbUpdates = {};
+  if (updates.displayName !== undefined) dbUpdates.display_name = updates.displayName;
+  if (updates.avatarType !== undefined) dbUpdates.avatar_type = updates.avatarType;
+  if (updates.customAvatarUri !== undefined) dbUpdates.custom_avatar_uri = updates.customAvatarUri;
+  if (updates.profileCompleted !== undefined) dbUpdates.profile_completed = updates.profileCompleted;
+
+  const { data, error } = await supabase
+    .from('users')
+    .update(dbUpdates)
+    .eq('id', user.id)
+    .select()
+    .single();
+
+  if (error) {
+    // Fallback: update locally
+    const updated = { ...user, ...updates };
+    const levelInfo = getLevelInfo(updated.xp);
+    updated.level = levelInfo.level;
+    await saveUserLocally(updated);
+    return updated;
   }
 
+  const updated = mapDbUser(data);
+  await saveUserLocally(updated);
   return updated;
 }
 
@@ -285,74 +178,74 @@ export async function logout() {
 export async function addXpToUser() {
   const user = await getCurrentUser();
   if (!user) return null;
+
   const newXp = (user.xp || 0) + XP_PER_REVIEW;
   const newTotalReviews = (user.totalReviews || 0) + 1;
   const levelInfo = getLevelInfo(newXp);
-  const updated = {
+
+  const { data, error } = await supabase
+    .from('users')
+    .update({
+      xp: newXp,
+      total_reviews: newTotalReviews,
+    })
+    .eq('id', user.id)
+    .select()
+    .single();
+
+  const updated = data ? mapDbUser(data) : {
     ...user,
     xp: newXp,
     totalReviews: newTotalReviews,
     level: levelInfo.level,
   };
-  await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(updated));
-  await addOrUpdateUserInList(updated);
+
+  await saveUserLocally(updated);
   return { user: updated, levelInfo, leveledUp: levelInfo.level > user.level };
 }
 
-// Internal: maintain a list of all users for ranking
-async function addOrUpdateUserInList(user) {
-  try {
-    const data = await AsyncStorage.getItem(ALL_USERS_KEY);
-    let users = data ? JSON.parse(data) : [];
-    const index = users.findIndex((u) => u.id === user.id);
-    // Only store ranking-relevant fields
-    const entry = {
-      id: user.id,
-      displayName: user.displayName,
-      avatarType: user.avatarType,
-      customAvatarUri: user.customAvatarUri,
-      level: user.level,
-      xp: user.xp,
-      totalReviews: user.totalReviews,
-      isSample: user.isSample || false,
-    };
-    if (index !== -1) {
-      users[index] = entry;
-    } else {
-      users.push(entry);
-    }
-    await AsyncStorage.setItem(ALL_USERS_KEY, JSON.stringify(users));
-  } catch {
-    // ignore
-  }
-}
-
-// Get all users for ranking (includes sample users)
+// Get all users for ranking
 export async function getAllUsersForRanking() {
   try {
-    const data = await AsyncStorage.getItem(ALL_USERS_KEY);
-    let users = data ? JSON.parse(data) : [];
-    // Ensure sample users exist
-    const hasSamples = users.some((u) => u.isSample);
-    if (!hasSamples) {
-      const sampleEntries = SAMPLE_USERS.map((u) => ({
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, display_name, avatar_type, custom_avatar_uri, xp, total_reviews')
+      .eq('profile_completed', true)
+      .order('xp', { ascending: false });
+
+    if (error || !data) return [];
+
+    return data
+      .filter((u) => u.display_name && u.display_name.length > 0)
+      .map((u) => ({
         id: u.id,
-        displayName: u.displayName,
-        avatarType: u.avatarType,
-        customAvatarUri: u.customAvatarUri,
-        level: u.level,
+        displayName: u.display_name,
+        avatarType: u.avatar_type,
+        customAvatarUri: u.custom_avatar_uri,
+        level: getLevelInfo(u.xp).level,
         xp: u.xp,
-        totalReviews: u.totalReviews,
-        isSample: true,
+        totalReviews: u.total_reviews,
+        isSample: false,
       }));
-      users = [...users, ...sampleEntries];
-      await AsyncStorage.setItem(ALL_USERS_KEY, JSON.stringify(users));
-    }
-    // Sort by XP descending
-    return users
-      .filter((u) => u.displayName && u.displayName.length > 0)
-      .sort((a, b) => b.xp - a.xp);
   } catch {
     return [];
   }
+}
+
+// Map database row to app user object
+function mapDbUser(row) {
+  const levelInfo = getLevelInfo(row.xp || 0);
+  return {
+    id: row.id,
+    displayName: row.display_name || '',
+    email: row.email,
+    provider: row.provider || 'email',
+    avatarType: row.avatar_type || 'poop_1',
+    customAvatarUri: row.custom_avatar_uri || null,
+    level: levelInfo.level,
+    xp: row.xp || 0,
+    totalReviews: row.total_reviews || 0,
+    joinDate: row.join_date || row.created_at,
+    profileCompleted: row.profile_completed || false,
+  };
 }

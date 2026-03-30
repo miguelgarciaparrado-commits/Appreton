@@ -1,198 +1,158 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from './supabase';
 import { addXpToUser, getCurrentUser } from './auth';
 
-const PLACES_KEY = '@appreton_places';
-const REVIEWS_KEY = '@appreton_reviews';
-
-// Sample data for initial load
-const SAMPLE_PLACES = [
-  {
-    id: '1',
-    name: 'Bar El Rincon',
-    type: 'bar',
-    address: 'Calle Mayor 12, Madrid',
-    latitude: 40.4168,
-    longitude: -3.7038,
-    avgRating: 3.5,
-    reviewCount: 2,
-  },
-  {
-    id: '2',
-    name: 'Gasolinera Repsol A-6',
-    type: 'gasolinera',
-    address: 'Autovia A-6 km 23, Madrid',
-    latitude: 40.4500,
-    longitude: -3.7500,
-    avgRating: 4.0,
-    reviewCount: 1,
-  },
-  {
-    id: '3',
-    name: 'Centro Comercial La Vaguada',
-    type: 'centro_comercial',
-    address: 'Av. de Monforte de Lemos 36, Madrid',
-    latitude: 40.4800,
-    longitude: -3.7100,
-    avgRating: 4.5,
-    reviewCount: 3,
-  },
-  {
-    id: '4',
-    name: 'Restaurante Casa Paco',
-    type: 'restaurante',
-    address: 'Plaza Puerta Cerrada 11, Madrid',
-    latitude: 40.4130,
-    longitude: -3.7090,
-    avgRating: 2.0,
-    reviewCount: 1,
-  },
-];
-
-const SAMPLE_REVIEWS = [
-  {
-    id: 'r1',
-    placeId: '1',
-    rating: 4,
-    comment: 'Bastante limpio para ser un bar, buen mantenimiento.',
-    hasPaper: true,
-    hasSoap: true,
-    hasBrush: false,
-    extras: ['Ambientador'],
-    date: '2026-03-15',
-  },
-  {
-    id: 'r2',
-    placeId: '1',
-    rating: 3,
-    comment: 'Normal, podria estar mas limpio.',
-    hasPaper: true,
-    hasSoap: false,
-    hasBrush: false,
-    extras: [],
-    date: '2026-03-20',
-  },
-  {
-    id: 'r3',
-    placeId: '2',
-    rating: 4,
-    comment: 'Muy limpio para ser una gasolinera, sorprendente.',
-    hasPaper: true,
-    hasSoap: true,
-    hasBrush: true,
-    extras: ['Secador de manos'],
-    date: '2026-03-18',
-  },
-  {
-    id: 'r4',
-    placeId: '3',
-    rating: 5,
-    comment: 'Impecable, como siempre en este centro comercial.',
-    hasPaper: true,
-    hasSoap: true,
-    hasBrush: true,
-    extras: ['Cambiador de bebes', 'Secador de manos'],
-    date: '2026-03-10',
-  },
-  {
-    id: 'r5',
-    placeId: '3',
-    rating: 4,
-    comment: 'Bien mantenido, aunque a veces falta papel.',
-    hasPaper: false,
-    hasSoap: true,
-    hasBrush: true,
-    extras: ['Secador de manos'],
-    date: '2026-03-22',
-  },
-  {
-    id: 'r6',
-    placeId: '3',
-    rating: 4.5,
-    comment: 'De los mejores banos publicos que he visto.',
-    hasPaper: true,
-    hasSoap: true,
-    hasBrush: true,
-    extras: ['Secador de manos', 'Papelera con tapa'],
-    date: '2026-03-25',
-  },
-  {
-    id: 'r7',
-    placeId: '4',
-    rating: 2,
-    comment: 'Bastante sucio, necesita una limpieza urgente.',
-    hasPaper: false,
-    hasSoap: false,
-    hasBrush: false,
-    extras: [],
-    date: '2026-03-12',
-  },
-];
-
+// Get all places from Supabase
 export async function getPlaces() {
   try {
-    const data = await AsyncStorage.getItem(PLACES_KEY);
-    if (data) return JSON.parse(data);
-    // Initialize with sample data
-    await AsyncStorage.setItem(PLACES_KEY, JSON.stringify(SAMPLE_PLACES));
-    return SAMPLE_PLACES;
+    const { data, error } = await supabase
+      .from('places')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.log('Error fetching places:', error.message);
+      return [];
+    }
+
+    return (data || []).map(mapDbPlace);
   } catch {
-    return SAMPLE_PLACES;
+    return [];
   }
 }
 
+// Get reviews for a place (or all reviews)
 export async function getReviews(placeId) {
   try {
-    const data = await AsyncStorage.getItem(REVIEWS_KEY);
-    const reviews = data ? JSON.parse(data) : SAMPLE_REVIEWS;
-    if (!data) {
-      await AsyncStorage.setItem(REVIEWS_KEY, JSON.stringify(SAMPLE_REVIEWS));
+    let query = supabase
+      .from('reviews')
+      .select('*, users(display_name, avatar_type)')
+      .order('created_at', { ascending: false });
+
+    if (placeId) {
+      query = query.eq('place_id', placeId);
     }
-    if (placeId) return reviews.filter((r) => r.placeId === placeId);
-    return reviews;
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.log('Error fetching reviews:', error.message);
+      return [];
+    }
+
+    return (data || []).map(mapDbReview);
   } catch {
-    return SAMPLE_REVIEWS.filter((r) => !placeId || r.placeId === placeId);
+    return [];
   }
 }
 
+// Add a new place
 export async function addPlace(place) {
-  const places = await getPlaces();
-  const newPlace = {
-    ...place,
-    id: Date.now().toString(),
-    avgRating: 0,
-    reviewCount: 0,
-  };
-  places.push(newPlace);
-  await AsyncStorage.setItem(PLACES_KEY, JSON.stringify(places));
-  return newPlace;
+  const currentUser = await getCurrentUser();
+
+  const { data, error } = await supabase
+    .from('places')
+    .insert({
+      name: place.name,
+      type: place.type,
+      address: place.address || '',
+      latitude: place.latitude || null,
+      longitude: place.longitude || null,
+      avg_rating: 0,
+      review_count: 0,
+      created_by: currentUser ? currentUser.id : null,
+    })
+    .select()
+    .single();
+
+  if (error) throw new Error('Error al anadir el lugar: ' + error.message);
+
+  return mapDbPlace(data);
 }
 
+// Add a new review
 export async function addReview(review) {
-  const reviews = await getReviews();
   const currentUser = await getCurrentUser();
-  const newReview = {
-    ...review,
-    id: Date.now().toString(),
-    date: new Date().toISOString().split('T')[0],
-    userId: currentUser ? currentUser.id : null,
-  };
-  reviews.push(newReview);
-  await AsyncStorage.setItem(REVIEWS_KEY, JSON.stringify(reviews));
+
+  const { data, error } = await supabase
+    .from('reviews')
+    .insert({
+      place_id: review.placeId,
+      user_id: currentUser ? currentUser.id : null,
+      rating: review.rating,
+      comment: review.comment || '',
+      has_paper: review.hasPaper || false,
+      has_soap: review.hasSoap || false,
+      has_brush: review.hasBrush || false,
+      extras: review.extras || [],
+      required_order: review.requiredOrder != null ? review.requiredOrder : null,
+    })
+    .select()
+    .single();
+
+  if (error) throw new Error('Error al guardar la opinion: ' + error.message);
 
   // Update place average rating
-  const places = await getPlaces();
-  const placeIndex = places.findIndex((p) => p.id === review.placeId);
-  if (placeIndex !== -1) {
-    const placeReviews = reviews.filter((r) => r.placeId === review.placeId);
-    const avg =
-      placeReviews.reduce((sum, r) => sum + r.rating, 0) / placeReviews.length;
-    places[placeIndex].avgRating = Math.round(avg * 10) / 10;
-    places[placeIndex].reviewCount = placeReviews.length;
-    await AsyncStorage.setItem(PLACES_KEY, JSON.stringify(places));
-  }
+  await updatePlaceRating(review.placeId);
 
-  // Award XP to the current user
+  // Award XP
   await addXpToUser();
 
-  return newReview;
+  return mapDbReview(data);
+}
+
+// Recalculate and update place average rating
+async function updatePlaceRating(placeId) {
+  try {
+    const { data: reviews } = await supabase
+      .from('reviews')
+      .select('rating')
+      .eq('place_id', placeId);
+
+    if (reviews && reviews.length > 0) {
+      const avg = reviews.reduce((sum, r) => sum + Number(r.rating), 0) / reviews.length;
+      await supabase
+        .from('places')
+        .update({
+          avg_rating: Math.round(avg * 10) / 10,
+          review_count: reviews.length,
+        })
+        .eq('id', placeId);
+    }
+  } catch {
+    // ignore
+  }
+}
+
+// Map database row to app place object
+function mapDbPlace(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    type: row.type,
+    address: row.address || '',
+    latitude: row.latitude,
+    longitude: row.longitude,
+    avgRating: Number(row.avg_rating) || 0,
+    reviewCount: row.review_count || 0,
+    createdBy: row.created_by,
+  };
+}
+
+// Map database row to app review object
+function mapDbReview(row) {
+  return {
+    id: row.id,
+    placeId: row.place_id,
+    userId: row.user_id,
+    rating: Number(row.rating),
+    comment: row.comment || '',
+    hasPaper: row.has_paper,
+    hasSoap: row.has_soap,
+    hasBrush: row.has_brush,
+    extras: row.extras || [],
+    requiredOrder: row.required_order,
+    date: row.date || row.created_at,
+    userName: row.users?.display_name || 'Anonimo',
+    userAvatar: row.users?.avatar_type || 'poop_1',
+  };
 }
