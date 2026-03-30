@@ -13,6 +13,7 @@ import LoginScreen from './src/screens/LoginScreen';
 import ProfileSetupScreen from './src/screens/ProfileSetupScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import AppretoneroRankingScreen from './src/screens/AppretoneroRankingScreen';
+import SplashScreen from './src/screens/SplashScreen';
 import { getCurrentUser } from './src/data/auth';
 
 const Stack = createNativeStackNavigator();
@@ -49,12 +50,15 @@ function TabIcon({ emoji, focused }) {
 }
 
 export default function App() {
-  const [authState, setAuthState] = useState('loading'); // 'loading' | 'login' | 'setup' | 'app'
+  const [authState, setAuthState] = useState('splash'); // 'splash' | 'loading' | 'login' | 'setup' | 'app'
   const [user, setUser] = useState(null);
 
-  useEffect(() => {
+  function handleSplashFinish() {
+    setAuthState('loading');
     checkAuth();
-  }, []);
+  }
+
+  useEffect(() => {}, []);
 
   async function checkAuth() {
     try {
@@ -89,6 +93,10 @@ export default function App() {
 
   function handleEditProfile() {
     setAuthState('setup');
+  }
+
+  if (authState === 'splash') {
+    return <SplashScreen onFinish={handleSplashFinish} />;
   }
 
   if (authState === 'loading') {
