@@ -9,11 +9,15 @@ import {
   SafeAreaView,
   StatusBar,
   ActivityIndicator,
+  Modal,
+  Dimensions,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { getPlaces } from '../data/store';
 import PlaceCard from '../components/PlaceCard';
+
+const MAX_DISTANCE_KM = 0.6; // 600 metros
 
 const FILTERS = [
   { key: 'todos', label: '🚽 Todos' },
@@ -56,6 +60,7 @@ export default function HomeScreen({ navigation }) {
   const [userLocation, setUserLocation] = useState(null);
   const [locationLoading, setLocationLoading] = useState(true);
   const [locationError, setLocationError] = useState(null);
+  const [showMap, setShowMap] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -107,7 +112,16 @@ export default function HomeScreen({ navigation }) {
     return { ...p, distance: null, distanceText: null };
   });
 
+  // Filter by max 600m when location is available, type and search
   const filtered = placesWithDistance
+    .filter((p) => {
+      // If we have location, only show places within 600m
+      if (userLocation && p.distance != null) {
+        return p.distance <= MAX_DISTANCE_KM;
+      }
+      // If no location, show all
+      return !userLocation;
+    })
     .filter((p) => filter === 'todos' || p.type === filter)
     .filter(
       (p) =>
@@ -122,12 +136,22 @@ export default function HomeScreen({ navigation }) {
       return b.avgRating - a.avgRating;
     });
 
+  // Places for map (within 600m)
+  const mapPlaces = placesWithDistance.filter(
+    (p) => userLocation && p.distance != null && p.distance <= MAX_DISTANCE_KM
+  );
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar backgroundColor="#8B6914" barStyle="light-content" />
       <View style={styles.header}>
-        <Text style={styles.logo}>💩 Appreton</Text>
-        <Text style={styles.subtitle}>Te cagas? abreme</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.logo}>💩 Appreton</Text>
+          <TouchableOpacity style={styles.mapBtn} onPress={() => setShowMap(true)}>
+            <Text style={styles.mapBtnText}>🗺️ Mapa</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.subtitle}>Te cagas?? abreme</Text>
       </View>
 
       {/* Location status */}
@@ -146,7 +170,7 @@ export default function HomeScreen({ navigation }) {
         ) : (
           <View style={styles.locationRow}>
             <Text style={styles.locationIcon}>📍</Text>
-            <Text style={styles.locationTextOk}>Ubicacion activada - mostrando sitios cercanos</Text>
+            <Text style={styles.locationTextOk}>Mostrando banos a menos de 600m</Text>
           </View>
         )}
       </View>
@@ -209,11 +233,85 @@ export default function HomeScreen({ navigation }) {
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>🚽</Text>
-            <Text style={styles.emptyText}>No se encontraron sitios</Text>
-            <Text style={styles.emptySubtext}>Anade uno con el boton +</Text>
+            <Text style={styles.emptyText}>No hay banos cerca (600m)</Text>
+            <Text style={styles.emptySubtext}>Se el primero en anadir uno con el boton +</Text>
           </View>
         }
       />
+
+      {/* Map Modal */}
+      <Modal visible={showMap} animationType="slide" onRequestClose={() => setShowMap(false)}>
+        <SafeAreaView style={styles.mapModal}>
+          <View style={styles.mapHeader}>
+            <Text style={styles.mapTitle}>🗺️ Mapa de banos cercanos</Text>
+            <TouchableOpacity onPress={() => setShowMap(false)}>
+              <Text style={styles.mapClose}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          {userLocation ? (
+            <View style={styles.mapContainer}>
+              {/* Visual map representation */}
+              <View style={styles.mapView}>
+                <Text style={styles.mapCenter}>📍</Text>
+                <Text style={styles.mapYouLabel}>Tu ubicacion</Text>
+                {userLocation && (
+                  <Text style={styles.mapCoords}>
+                    {userLocation.latitude.toFixed(4)}, {userLocation.longitude.toFixed(4)}
+                  </Text>
+                )}
+              </View>
+
+              {/* List of nearby places on map */}
+              <View style={styles.mapRadius}>
+                <Text style={styles.mapRadiusText}>Radio: 600m</Text>
+              </View>
+
+              <FlatList
+                data={mapPlaces}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.mapPlace}
+                    onPress={() => {
+                      setShowMap(false);
+                      navigation.navigate('PlaceDetail', { place: item });
+                    }}
+                  >
+                    <View style={styles.mapPlaceLeft}>
+                      <Text style={styles.mapPlaceIcon}>
+                        {item.type === 'bar' ? '🍺' : item.type === 'restaurante' ? '🍽️' : item.type === 'gasolinera' ? '⛽' : item.type === 'centro_comercial' ? '🛒' : '🏢'}
+                      </Text>
+                      <View>
+                        <Text style={styles.mapPlaceName}>{item.name}</Text>
+                        <Text style={styles.mapPlaceAddr}>{item.address}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.mapPlaceRight}>
+                      <Text style={styles.mapPlaceDist}>{item.distanceText}</Text>
+                      <Text style={styles.mapPlaceRating}>
+                        {item.reviewCount > 0 ? `💩 ${item.avgRating.toFixed(1)}` : 'Sin opiniones'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  <View style={styles.mapEmpty}>
+                    <Text style={styles.mapEmptyIcon}>🚽</Text>
+                    <Text style={styles.mapEmptyText}>No hay banos en 600m</Text>
+                    <Text style={styles.mapEmptySubtext}>Anade uno nuevo!</Text>
+                  </View>
+                }
+              />
+            </View>
+          ) : (
+            <View style={styles.mapLoading}>
+              <ActivityIndicator size="large" color="#8B6914" />
+              <Text style={styles.mapLoadingText}>Obteniendo ubicacion...</Text>
+            </View>
+          )}
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -229,10 +327,26 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     paddingHorizontal: 20,
   },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   logo: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#FFF',
+  },
+  mapBtn: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  mapBtnText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
   subtitle: {
     fontSize: 14,
@@ -362,5 +476,134 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#999',
     marginTop: 4,
+  },
+  // Map modal styles
+  mapModal: {
+    flex: 1,
+    backgroundColor: '#F5F0E1',
+  },
+  mapHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#8B6914',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  mapTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFF',
+  },
+  mapClose: {
+    fontSize: 22,
+    color: '#FFF',
+    fontWeight: 'bold',
+    paddingHorizontal: 8,
+  },
+  mapContainer: {
+    flex: 1,
+  },
+  mapView: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 30,
+    backgroundColor: '#E8F6F3',
+    borderBottomWidth: 1,
+    borderBottomColor: '#DDD',
+  },
+  mapCenter: {
+    fontSize: 40,
+  },
+  mapYouLabel: {
+    fontSize: 14,
+    color: '#2C3E50',
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  mapCoords: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 2,
+  },
+  mapRadius: {
+    alignItems: 'center',
+    paddingVertical: 8,
+    backgroundColor: '#FFF9E6',
+  },
+  mapRadiusText: {
+    fontSize: 13,
+    color: '#8B6914',
+    fontWeight: '600',
+  },
+  mapPlace: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    marginHorizontal: 16,
+    marginVertical: 4,
+    padding: 14,
+    borderRadius: 12,
+    elevation: 2,
+  },
+  mapPlaceLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  mapPlaceIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  mapPlaceName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#2C3E50',
+  },
+  mapPlaceAddr: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 2,
+  },
+  mapPlaceRight: {
+    alignItems: 'flex-end',
+  },
+  mapPlaceDist: {
+    fontSize: 13,
+    color: '#2980B9',
+    fontWeight: '600',
+  },
+  mapPlaceRating: {
+    fontSize: 12,
+    color: '#8B6914',
+    marginTop: 2,
+  },
+  mapEmpty: {
+    alignItems: 'center',
+    paddingTop: 40,
+  },
+  mapEmptyIcon: {
+    fontSize: 50,
+  },
+  mapEmptyText: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 12,
+  },
+  mapEmptySubtext: {
+    fontSize: 13,
+    color: '#999',
+    marginTop: 4,
+  },
+  mapLoading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mapLoadingText: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 12,
   },
 });

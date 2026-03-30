@@ -34,10 +34,16 @@ export default function PlaceCard({ place, onPress }) {
       <Text style={styles.name}>{place.name}</Text>
       <Text style={styles.address}>{place.address}</Text>
       <View style={styles.footer}>
-        <PoopRating rating={place.avgRating} size={20} readonly />
-        <Text style={styles.ratingText}>
-          {place.avgRating.toFixed(1)} ({place.reviewCount} {place.reviewCount === 1 ? 'opinion' : 'opiniones'})
-        </Text>
+        {place.reviewCount > 0 ? (
+          <>
+            <PoopRating rating={place.avgRating} size={20} readonly />
+            <Text style={styles.ratingText}>
+              {place.avgRating.toFixed(1)} ({place.reviewCount} {place.reviewCount === 1 ? 'opinion' : 'opiniones'})
+            </Text>
+          </>
+        ) : (
+          <Text style={styles.noReviews}>Sin opiniones - se el primero!</Text>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -102,5 +108,10 @@ const styles = StyleSheet.create({
     color: '#2980B9',
     fontSize: 12,
     fontWeight: '600',
+  },
+  noReviews: {
+    fontSize: 13,
+    color: '#999',
+    fontStyle: 'italic',
   },
 });
