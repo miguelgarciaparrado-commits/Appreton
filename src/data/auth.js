@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AUTH_USER_KEY = '@appreton_auth_user';
 const ALL_USERS_KEY = '@appreton_all_users';
+const REGISTERED_USERS_KEY = '@appreton_registered_users';
 
 // Level definitions
 const LEVELS = [
@@ -21,7 +22,7 @@ const SAMPLE_USERS = [
     id: 'sample_1',
     displayName: 'CacaMaster2000',
     email: 'caca@mail.com',
-    provider: 'google',
+    provider: 'email',
     avatarType: 'poop_3',
     customAvatarUri: null,
     level: 6,
@@ -34,7 +35,7 @@ const SAMPLE_USERS = [
     id: 'sample_2',
     displayName: 'LaReinaDelBano',
     email: 'reina@mail.com',
-    provider: 'instagram',
+    provider: 'google',
     avatarType: 'poop_1',
     customAvatarUri: null,
     level: 5,
@@ -163,7 +164,70 @@ export async function getCurrentUser() {
   }
 }
 
-// Mock login - simulates OAuth by creating a user record
+// Get all registered users
+async function getRegisteredUsers() {
+  try {
+    const data = await AsyncStorage.getItem(REGISTERED_USERS_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+}
+
+// Save registered users
+async function saveRegisteredUsers(users) {
+  await AsyncStorage.setItem(REGISTERED_USERS_KEY, JSON.stringify(users));
+}
+
+// Register a new user with email and password
+export async function registerWithEmail(email, password) {
+  const users = await getRegisteredUsers();
+
+  // Check if email already exists
+  const existing = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
+  if (existing) {
+    throw new Error('Ya existe una cuenta con este email');
+  }
+
+  const userId = 'user_' + Date.now().toString();
+  const user = {
+    id: userId,
+    displayName: '',
+    email: email.toLowerCase(),
+    password, // stored locally only
+    provider: 'email',
+    avatarType: 'poop_1',
+    customAvatarUri: null,
+    level: 1,
+    xp: 0,
+    totalReviews: 0,
+    joinDate: new Date().toISOString().split('T')[0],
+    profileCompleted: false,
+  };
+
+  users.push(user);
+  await saveRegisteredUsers(users);
+  await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+  await addOrUpdateUserInList(user);
+  return user;
+}
+
+// Login with email and password
+export async function loginWithEmail(email, password) {
+  const users = await getRegisteredUsers();
+  const user = users.find(
+    (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password
+  );
+
+  if (!user) {
+    throw new Error('Email o contrasena incorrectos');
+  }
+
+  await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+  return user;
+}
+
+// Register/login with social provider (simulated OAuth)
 export async function loginWithProvider(provider) {
   const userId = 'user_' + Date.now().toString();
   const user = {
@@ -179,8 +243,13 @@ export async function loginWithProvider(provider) {
     joinDate: new Date().toISOString().split('T')[0],
     profileCompleted: false,
   };
+
+  // Save as registered user too
+  const users = await getRegisteredUsers();
+  users.push({ ...user, password: null });
+  await saveRegisteredUsers(users);
+
   await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
-  // Also add to all users list
   await addOrUpdateUserInList(user);
   return user;
 }
@@ -195,6 +264,15 @@ export async function saveUserProfile(updates) {
   updated.level = levelInfo.level;
   await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(updated));
   await addOrUpdateUserInList(updated);
+
+  // Also update in registered users
+  const users = await getRegisteredUsers();
+  const idx = users.findIndex((u) => u.id === updated.id);
+  if (idx !== -1) {
+    users[idx] = { ...users[idx], ...updates, level: updated.level };
+    await saveRegisteredUsers(users);
+  }
+
   return updated;
 }
 
