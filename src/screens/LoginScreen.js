@@ -40,7 +40,7 @@ export default function LoginScreen({ onLogin }) {
         <View style={styles.brandSection}>
           <Text style={styles.poopEmoji}>{'\uD83D\uDCA9'}</Text>
           <Text style={styles.appName}>Appreton</Text>
-          <Text style={styles.tagline}>La app para encontrar{'\n'}el bano perfecto</Text>
+          <Text style={styles.tagline}>Te cagas?? abreme</Text>
         </View>
 
         {/* Subtitle */}

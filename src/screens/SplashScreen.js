@@ -44,7 +44,7 @@ export default function SplashScreen({ onFinish }) {
           <Text style={styles.appName}>Appreton</Text>
         </Animated.View>
         <Animated.View style={[styles.messageContainer, { opacity: textFade }]}>
-          <Text style={styles.message}>Te cagas? abreme</Text>
+          <Text style={styles.message}>Te cagas?? abreme</Text>
         </Animated.View>
       </View>
     </TouchableWithoutFeedback>
