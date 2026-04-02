@@ -14,7 +14,7 @@ import ProfileSetupScreen from './src/screens/ProfileSetupScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import AppretoneroRankingScreen from './src/screens/AppretoneroRankingScreen';
 import MapScreen from './src/screens/MapScreen';
-import { getCurrentUser } from './src/data/auth';
+import { getCurrentUser, logout } from './src/data/auth';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -61,6 +61,10 @@ export default function App() {
     try {
       const currentUser = await getCurrentUser();
       if (!currentUser) {
+        setAuthState('login');
+      } else if (currentUser.provider !== 'email') {
+        // Old mock OAuth session — force re-login with new email/password system
+        await logout();
         setAuthState('login');
       } else if (!currentUser.profileCompleted) {
         setUser(currentUser);
