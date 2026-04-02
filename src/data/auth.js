@@ -2,6 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AUTH_USER_KEY = '@appreton_auth_user';
 const ALL_USERS_KEY = '@appreton_all_users';
+const CREDENTIALS_KEY = '@appreton_credentials';
+const USERS_DATA_KEY = '@appreton_users_data';
 
 // Level definitions
 const LEVELS = [
@@ -163,6 +165,82 @@ export async function getCurrentUser() {
   }
 }
 
+// Register new user with email + password
+export async function register(email, password) {
+  const emailLower = email.trim().toLowerCase();
+  const creds = await getCredentials();
+  if (creds[emailLower]) {
+    throw new Error('Este email ya esta registrado');
+  }
+  const userId = 'user_' + Date.now().toString();
+  const user = {
+    id: userId,
+    displayName: '',
+    email: emailLower,
+    provider: 'email',
+    avatarType: 'poop_1',
+    customAvatarUri: null,
+    level: 1,
+    xp: 0,
+    totalReviews: 0,
+    joinDate: new Date().toISOString().split('T')[0],
+    profileCompleted: false,
+  };
+  creds[emailLower] = { password, userId };
+  await AsyncStorage.setItem(CREDENTIALS_KEY, JSON.stringify(creds));
+  await saveUserData(userId, user);
+  await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+  await addOrUpdateUserInList(user);
+  return user;
+}
+
+// Login with email + password
+export async function loginWithEmail(email, password) {
+  const emailLower = email.trim().toLowerCase();
+  const creds = await getCredentials();
+  if (!creds[emailLower]) {
+    throw new Error('Email no encontrado. Registrate primero');
+  }
+  if (creds[emailLower].password !== password) {
+    throw new Error('Contrasena incorrecta');
+  }
+  const userId = creds[emailLower].userId;
+  const userData = await getUserData(userId);
+  if (!userData) {
+    throw new Error('Usuario no encontrado');
+  }
+  await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(userData));
+  return userData;
+}
+
+async function getCredentials() {
+  try {
+    const data = await AsyncStorage.getItem(CREDENTIALS_KEY);
+    return data ? JSON.parse(data) : {};
+  } catch {
+    return {};
+  }
+}
+
+async function saveUserData(userId, user) {
+  try {
+    const data = await AsyncStorage.getItem(USERS_DATA_KEY);
+    const users = data ? JSON.parse(data) : {};
+    users[userId] = user;
+    await AsyncStorage.setItem(USERS_DATA_KEY, JSON.stringify(users));
+  } catch {}
+}
+
+async function getUserData(userId) {
+  try {
+    const data = await AsyncStorage.getItem(USERS_DATA_KEY);
+    const users = data ? JSON.parse(data) : {};
+    return users[userId] || null;
+  } catch {
+    return null;
+  }
+}
+
 // Mock login - simulates OAuth by creating a user record
 export async function loginWithProvider(provider) {
   const userId = 'user_' + Date.now().toString();
@@ -180,7 +258,6 @@ export async function loginWithProvider(provider) {
     profileCompleted: false,
   };
   await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
-  // Also add to all users list
   await addOrUpdateUserInList(user);
   return user;
 }
@@ -194,6 +271,7 @@ export async function saveUserProfile(updates) {
   const levelInfo = getLevelInfo(updated.xp);
   updated.level = levelInfo.level;
   await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(updated));
+  await saveUserData(updated.id, updated);
   await addOrUpdateUserInList(updated);
   return updated;
 }
@@ -217,6 +295,7 @@ export async function addXpToUser() {
     level: levelInfo.level,
   };
   await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(updated));
+  await saveUserData(updated.id, updated);
   await addOrUpdateUserInList(updated);
   return { user: updated, levelInfo, leveledUp: levelInfo.level > user.level };
 }

@@ -6,74 +6,160 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
+  TextInput,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
-import { loginWithProvider } from '../data/auth';
-
-const PROVIDERS = [
-  { key: 'google', label: 'Continuar con Google', color: '#DB4437', icon: '\uD83C\uDF10' },
-  { key: 'instagram', label: 'Continuar con Instagram', color: '#E1306C', icon: '\uD83D\uDCF7' },
-  { key: 'facebook', label: 'Continuar con Facebook', color: '#4267B2', icon: '\uD83D\uDC64' },
-  { key: 'apple', label: 'Continuar con Apple', color: '#000000', icon: '\uD83C\uDF4F' },
-];
+import { register, loginWithEmail } from '../data/auth';
 
 export default function LoginScreen({ onLogin }) {
+  const [mode, setMode] = useState('login'); // 'login' | 'register'
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  async function handleLogin(provider) {
+  function validateEmail(e) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
+  }
+
+  async function handleSubmit() {
+    setError('');
+    if (!email.trim() || !password) {
+      setError('Rellena todos los campos');
+      return;
+    }
+    if (!validateEmail(email)) {
+      setError('Email no valido');
+      return;
+    }
+    if (password.length < 6) {
+      setError('La contrasena debe tener al menos 6 caracteres');
+      return;
+    }
+    if (mode === 'register' && password !== confirmPassword) {
+      setError('Las contrasenas no coinciden');
+      return;
+    }
+
     setLoading(true);
     try {
-      const user = await loginWithProvider(provider);
+      let user;
+      if (mode === 'register') {
+        user = await register(email, password);
+      } else {
+        user = await loginWithEmail(email, password);
+      }
       onLogin(user);
-    } catch {
-      // ignore
+    } catch (e) {
+      setError(e.message || 'Error al iniciar sesion');
     } finally {
       setLoading(false);
     }
   }
 
+  function switchMode() {
+    setMode(mode === 'login' ? 'register' : 'login');
+    setError('');
+    setPassword('');
+    setConfirmPassword('');
+  }
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar backgroundColor="#8B6914" barStyle="light-content" />
-      <View style={styles.container}>
-        {/* Branding */}
-        <View style={styles.brandSection}>
-          <Text style={styles.poopEmoji}>{'\uD83D\uDCA9'}</Text>
-          <Text style={styles.appName}>Appreton</Text>
-          <Text style={styles.tagline}>La app para encontrar{'\n'}el bano perfecto</Text>
-        </View>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Branding */}
+          <View style={styles.brandSection}>
+            <Text style={styles.poopEmoji}>💩</Text>
+            <Text style={styles.appName}>Appreton</Text>
+            <Text style={styles.tagline}>La app para encontrar{'\n'}el bano perfecto</Text>
+          </View>
 
-        {/* Subtitle */}
-        <View style={styles.subtitleSection}>
-          <Text style={styles.subtitle}>Inicia sesion para guardar tus opiniones,{'\n'}subir de nivel y competir con otros!</Text>
-        </View>
+          {/* Form card */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>
+              {mode === 'login' ? 'Iniciar sesion' : 'Crear cuenta'}
+            </Text>
 
-        {/* Login buttons */}
-        <View style={styles.buttonsSection}>
-          {PROVIDERS.map((p) => (
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="tu@email.com"
+              placeholderTextColor="#BBB"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+
+            <Text style={styles.label}>Contrasena</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Minimo 6 caracteres"
+              placeholderTextColor="#BBB"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
+
+            {mode === 'register' && (
+              <>
+                <Text style={styles.label}>Confirmar contrasena</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Repite la contrasena"
+                  placeholderTextColor="#BBB"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry
+                />
+              </>
+            )}
+
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
             <TouchableOpacity
-              key={p.key}
-              style={[styles.loginBtn, { backgroundColor: p.color }]}
-              onPress={() => handleLogin(p.key)}
+              style={styles.submitBtn}
+              onPress={handleSubmit}
               disabled={loading}
               activeOpacity={0.8}
             >
-              <Text style={styles.loginIcon}>{p.icon}</Text>
-              <Text style={styles.loginText}>{p.label}</Text>
+              {loading ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <Text style={styles.submitText}>
+                  {mode === 'login' ? 'Entrar' : 'Registrarse'}
+                </Text>
+              )}
             </TouchableOpacity>
-          ))}
-        </View>
 
-        {loading && (
-          <ActivityIndicator
-            size="large"
-            color="#8B6914"
-            style={styles.loader}
-          />
-        )}
+            <TouchableOpacity onPress={switchMode} style={styles.switchRow}>
+              <Text style={styles.switchText}>
+                {mode === 'login'
+                  ? '¿No tienes cuenta? '
+                  : '¿Ya tienes cuenta? '}
+                <Text style={styles.switchLink}>
+                  {mode === 'login' ? 'Registrate' : 'Inicia sesion'}
+                </Text>
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-        <Text style={styles.footer}>Al continuar aceptas nuestras condiciones de uso {'\uD83D\uDEBD'}</Text>
-      </View>
+          <Text style={styles.footer}>Al continuar aceptas nuestras condiciones de uso 🚽</Text>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -83,70 +169,101 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F0E1',
   },
-  container: {
-    flex: 1,
+  scroll: {
+    flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: 30,
+    paddingHorizontal: 24,
+    paddingVertical: 32,
   },
   brandSection: {
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 32,
   },
   poopEmoji: {
-    fontSize: 80,
+    fontSize: 72,
   },
   appName: {
-    fontSize: 42,
+    fontSize: 40,
     fontWeight: 'bold',
     color: '#8B6914',
     marginTop: 8,
   },
   tagline: {
-    fontSize: 16,
-    color: '#666',
+    fontSize: 15,
+    color: '#888',
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: 6,
     lineHeight: 22,
   },
-  subtitleSection: {
-    marginBottom: 30,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#999',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  buttonsSection: {
-    gap: 12,
-  },
-  loginBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 14,
-    elevation: 3,
+  card: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: 24,
+    elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
   },
-  loginIcon: {
+  cardTitle: {
     fontSize: 22,
-    marginRight: 12,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 20,
+    textAlign: 'center',
   },
-  loginText: {
-    color: '#FFF',
-    fontSize: 16,
+  label: {
+    fontSize: 13,
     fontWeight: '600',
+    color: '#555',
+    marginBottom: 6,
+    marginTop: 12,
   },
-  loader: {
+  input: {
+    borderWidth: 1.5,
+    borderColor: '#E0D8C8',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: '#333',
+    backgroundColor: '#FAFAF8',
+  },
+  errorText: {
+    color: '#E74C3C',
+    fontSize: 13,
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  submitBtn: {
+    backgroundColor: '#8B6914',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
     marginTop: 20,
+    elevation: 3,
+  },
+  submitText: {
+    color: '#FFF',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  switchRow: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  switchText: {
+    fontSize: 14,
+    color: '#888',
+  },
+  switchLink: {
+    color: '#8B6914',
+    fontWeight: '700',
   },
   footer: {
     fontSize: 11,
     color: '#BBB',
     textAlign: 'center',
-    marginTop: 30,
+    marginTop: 24,
   },
 });

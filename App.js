@@ -13,6 +13,7 @@ import LoginScreen from './src/screens/LoginScreen';
 import ProfileSetupScreen from './src/screens/ProfileSetupScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import AppretoneroRankingScreen from './src/screens/AppretoneroRankingScreen';
+import MapScreen from './src/screens/MapScreen';
 import { getCurrentUser } from './src/data/auth';
 
 const Stack = createNativeStackNavigator();
@@ -132,6 +133,14 @@ export default function App() {
           options={{
             headerShown: false,
             tabBarIcon: ({ focused }) => <TabIcon emoji={'\uD83D\uDEBD'} focused={focused} />,
+          }}
+        />
+        <Tab.Screen
+          name="Mapa"
+          component={MapScreen}
+          options={{
+            headerShown: false,
+            tabBarIcon: ({ focused }) => <TabIcon emoji={'\uD83D\uDDFA\uFE0F'} focused={focused} />,
           }}
         />
         <Tab.Screen

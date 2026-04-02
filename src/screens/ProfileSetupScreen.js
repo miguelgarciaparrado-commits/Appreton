@@ -18,6 +18,7 @@ import PoopAvatar, { getAllPoopAvatars } from '../components/PoopAvatar';
 
 export default function ProfileSetupScreen({ onComplete }) {
   const [displayName, setDisplayName] = useState('');
+  const [gender, setGender] = useState(null); // 'hombre' | 'mujer'
   const [avatarType, setAvatarType] = useState('poop_1');
   const [customAvatarUri, setCustomAvatarUri] = useState(null);
 
@@ -31,6 +32,7 @@ export default function ProfileSetupScreen({ onComplete }) {
     const user = await getCurrentUser();
     if (user) {
       if (user.displayName) setDisplayName(user.displayName);
+      if (user.gender) setGender(user.gender);
       if (user.avatarType) setAvatarType(user.avatarType);
       if (user.customAvatarUri) setCustomAvatarUri(user.customAvatarUri);
     }
@@ -88,9 +90,14 @@ export default function ProfileSetupScreen({ onComplete }) {
       Alert.alert('Oops', 'El nombre debe tener al menos 3 caracteres');
       return;
     }
+    if (!gender) {
+      Alert.alert('Oops', 'Selecciona tu genero');
+      return;
+    }
 
     await saveUserProfile({
       displayName: displayName.trim(),
+      gender,
       avatarType,
       customAvatarUri: avatarType === 'custom' ? customAvatarUri : null,
       profileCompleted: true,
@@ -134,6 +141,31 @@ export default function ProfileSetupScreen({ onComplete }) {
               autoCapitalize="none"
             />
             <Text style={styles.hint}>{displayName.length}/20 caracteres</Text>
+          </View>
+
+          {/* Gender */}
+          <View style={styles.section}>
+            <Text style={styles.label}>Genero</Text>
+            <View style={styles.genderRow}>
+              <TouchableOpacity
+                style={[styles.genderBtn, gender === 'hombre' && styles.genderBtnSelected]}
+                onPress={() => setGender('hombre')}
+              >
+                <Text style={styles.genderEmoji}>👨</Text>
+                <Text style={[styles.genderText, gender === 'hombre' && styles.genderTextSelected]}>
+                  Hombre
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.genderBtn, gender === 'mujer' && styles.genderBtnSelected]}
+                onPress={() => setGender('mujer')}
+              >
+                <Text style={styles.genderEmoji}>👩</Text>
+                <Text style={[styles.genderText, gender === 'mujer' && styles.genderTextSelected]}>
+                  Mujer
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Custom photo options */}
@@ -237,6 +269,35 @@ const styles = StyleSheet.create({
     color: '#999',
     marginTop: 4,
     textAlign: 'right',
+  },
+  genderRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  genderBtn: {
+    flex: 1,
+    backgroundColor: '#FFF',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#EEE',
+  },
+  genderBtnSelected: {
+    borderColor: '#8B6914',
+    backgroundColor: '#FFF9E6',
+  },
+  genderEmoji: {
+    fontSize: 32,
+    marginBottom: 6,
+  },
+  genderText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#888',
+  },
+  genderTextSelected: {
+    color: '#8B6914',
   },
   photoButtons: {
     flexDirection: 'row',
