@@ -37,6 +37,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "./plugins/set-java-home",
       [
         "expo-build-properties",
         {
