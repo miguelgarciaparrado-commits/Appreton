@@ -61,12 +61,6 @@
           "photosPermission": "Appreton necesita acceso a tus fotos para subir imagenes de los banos.",
           "cameraPermission": "Appreton necesita acceso a la camara para tomar fotos de los banos."
         }
-      ],
-      [
-        "react-native-maps",
-        {
-          "googleMapsApiKey": ""
-        }
       ]
     ]
   }
