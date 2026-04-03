@@ -15,6 +15,19 @@ import {
 import PoopRating from '../components/PoopRating';
 import { addReview } from '../data/store';
 
+const EXTRAS_OPTIONS = [
+  { icon: '💨', label: 'Secador de manos' },
+  { icon: '👶', label: 'Cambiador de bebes' },
+  { icon: '♿', label: 'Accesible' },
+  { icon: '🗑️', label: 'Papelera con tapa' },
+  { icon: '🪟', label: 'Buena ventilacion' },
+  { icon: '🌸', label: 'Buen olor' },
+  { icon: '🔒', label: 'Cierre en la puerta' },
+  { icon: '💡', label: 'Buena iluminacion' },
+  { icon: '🪞', label: 'Espejo' },
+  { icon: '🧽', label: 'Bien limpio' },
+];
+
 export default function AddReviewScreen({ route, navigation }) {
   const { place } = route.params;
   const [rating, setRating] = useState(0);
@@ -24,19 +37,7 @@ export default function AddReviewScreen({ route, navigation }) {
   const [hasBrush, setHasBrush] = useState(false);
   const [requiredOrder, setRequiredOrder] = useState(null); // null = not answered, true = yes, false = no
   const [extras, setExtras] = useState([]);
-  const [newExtra, setNewExtra] = useState('');
 
-  function addExtra() {
-    const trimmed = newExtra.trim();
-    if (trimmed && !extras.includes(trimmed)) {
-      setExtras([...extras, trimmed]);
-      setNewExtra('');
-    }
-  }
-
-  function removeExtra(index) {
-    setExtras(extras.filter((_, i) => i !== index));
-  }
 
   async function handleSubmit() {
     if (rating === 0) {
@@ -181,33 +182,30 @@ export default function AddReviewScreen({ route, navigation }) {
 
           {/* Extras */}
           <View style={styles.section}>
-            <Text style={styles.label}>Extras</Text>
-            <Text style={styles.hint}>Anade otros detalles (secador, cambiador...)</Text>
-
-            <View style={styles.extraInputRow}>
-              <TextInput
-                style={styles.extraInput}
-                placeholder="Ej: Secador de manos"
-                placeholderTextColor="#999"
-                value={newExtra}
-                onChangeText={setNewExtra}
-                onSubmitEditing={addExtra}
-              />
-              <TouchableOpacity style={styles.extraAddBtn} onPress={addExtra}>
-                <Text style={styles.extraAddText}>+</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.extrasList}>
-              {extras.map((extra, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.extraBadge}
-                  onPress={() => removeExtra(index)}
-                >
-                  <Text style={styles.extraBadgeText}>✨ {extra} ✕</Text>
-                </TouchableOpacity>
-              ))}
+            <Text style={styles.label}>Extras del bano</Text>
+            <Text style={styles.hint}>Selecciona lo que tiene</Text>
+            <View style={styles.extraGrid}>
+              {EXTRAS_OPTIONS.map((opt) => {
+                const selected = extras.includes(opt.label);
+                return (
+                  <TouchableOpacity
+                    key={opt.label}
+                    style={[styles.extraChip, selected && styles.extraChipSelected]}
+                    onPress={() =>
+                      setExtras(
+                        selected
+                          ? extras.filter((e) => e !== opt.label)
+                          : [...extras, opt.label]
+                      )
+                    }
+                  >
+                    <Text style={styles.extraChipIcon}>{opt.icon}</Text>
+                    <Text style={[styles.extraChipText, selected && styles.extraChipTextSelected]}>
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
 
@@ -317,49 +315,30 @@ const styles = StyleSheet.create({
   orderBtnTextActive: {
     color: '#2C3E50',
   },
-  extraInputRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  extraInput: {
-    flex: 1,
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 15,
-    borderWidth: 1,
-    borderColor: '#DDD',
-  },
-  extraAddBtn: {
-    backgroundColor: '#8B6914',
-    width: 48,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  extraAddText: {
-    color: '#FFF',
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  extrasList: {
+  extraGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 10,
+    gap: 10,
+    marginTop: 4,
   },
-  extraBadge: {
-    backgroundColor: '#EBF5FB',
-    borderColor: '#3498DB',
-    borderWidth: 1,
+  extraChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 10,
     borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#DDD',
+    backgroundColor: '#FFF',
+    gap: 6,
   },
-  extraBadgeText: {
-    fontSize: 13,
-    color: '#2980B9',
+  extraChipSelected: {
+    backgroundColor: '#FFF9E6',
+    borderColor: '#8B6914',
   },
+  extraChipIcon: { fontSize: 16 },
+  extraChipText: { fontSize: 13, color: '#888', fontWeight: '500' },
+  extraChipTextSelected: { color: '#8B6914', fontWeight: '700' },
   submitBtn: {
     backgroundColor: '#8B6914',
     padding: 18,
