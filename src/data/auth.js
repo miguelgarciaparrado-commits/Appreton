@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from './supabase';
 
 const AUTH_USER_KEY = '@appreton_auth_user';
 const ALL_USERS_KEY = '@appreton_all_users';
@@ -300,56 +301,85 @@ export async function addXpToUser() {
   return { user: updated, levelInfo, leveledUp: levelInfo.level > user.level };
 }
 
-// Internal: maintain a list of all users for ranking
+// Internal: maintain a list of all users for ranking (local + Supabase)
 async function addOrUpdateUserInList(user) {
+  const entry = {
+    id: user.id,
+    displayName: user.displayName,
+    avatarType: user.avatarType,
+    customAvatarUri: user.customAvatarUri,
+    level: user.level,
+    xp: user.xp,
+    totalReviews: user.totalReviews,
+    isSample: user.isSample || false,
+  };
+
+  // Sync to Supabase
+  try {
+    await supabase.from('user_profiles').upsert({
+      id: user.id,
+      display_name: user.displayName,
+      email: user.email,
+      provider: user.provider,
+      avatar_type: user.avatarType,
+      custom_avatar_uri: user.customAvatarUri,
+      level: user.level,
+      xp: user.xp,
+      total_reviews: user.totalReviews,
+      join_date: user.joinDate,
+      profile_completed: user.profileCompleted || false,
+      gender: user.gender || null,
+      is_sample: user.isSample || false,
+    });
+  } catch {}
+
+  // Also keep local cache
   try {
     const data = await AsyncStorage.getItem(ALL_USERS_KEY);
     let users = data ? JSON.parse(data) : [];
     const index = users.findIndex((u) => u.id === user.id);
-    // Only store ranking-relevant fields
-    const entry = {
-      id: user.id,
-      displayName: user.displayName,
-      avatarType: user.avatarType,
-      customAvatarUri: user.customAvatarUri,
-      level: user.level,
-      xp: user.xp,
-      totalReviews: user.totalReviews,
-      isSample: user.isSample || false,
-    };
-    if (index !== -1) {
-      users[index] = entry;
-    } else {
-      users.push(entry);
-    }
+    if (index !== -1) users[index] = entry;
+    else users.push(entry);
     await AsyncStorage.setItem(ALL_USERS_KEY, JSON.stringify(users));
-  } catch {
-    // ignore
-  }
+  } catch {}
 }
 
-// Get all users for ranking (includes sample users)
+// Get all users for ranking — Supabase first, local cache fallback
 export async function getAllUsersForRanking() {
+  try {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .order('xp', { ascending: false });
+
+    if (!error && data && data.length > 0) {
+      const users = data.map((u) => ({
+        id: u.id,
+        displayName: u.display_name,
+        avatarType: u.avatar_type,
+        customAvatarUri: u.custom_avatar_uri,
+        level: u.level,
+        xp: u.xp,
+        totalReviews: u.total_reviews,
+        isSample: u.is_sample,
+      }));
+      return users.filter((u) => u.displayName && u.displayName.length > 0);
+    }
+  } catch {}
+
+  // Fallback: local cache + sample users
   try {
     const data = await AsyncStorage.getItem(ALL_USERS_KEY);
     let users = data ? JSON.parse(data) : [];
-    // Ensure sample users exist
     const hasSamples = users.some((u) => u.isSample);
     if (!hasSamples) {
-      const sampleEntries = SAMPLE_USERS.map((u) => ({
-        id: u.id,
-        displayName: u.displayName,
-        avatarType: u.avatarType,
-        customAvatarUri: u.customAvatarUri,
-        level: u.level,
-        xp: u.xp,
-        totalReviews: u.totalReviews,
-        isSample: true,
-      }));
-      users = [...users, ...sampleEntries];
+      users = [...users, ...SAMPLE_USERS.map((u) => ({
+        id: u.id, displayName: u.displayName, avatarType: u.avatarType,
+        customAvatarUri: u.customAvatarUri, level: u.level,
+        xp: u.xp, totalReviews: u.totalReviews, isSample: true,
+      }))];
       await AsyncStorage.setItem(ALL_USERS_KEY, JSON.stringify(users));
     }
-    // Sort by XP descending
     return users
       .filter((u) => u.displayName && u.displayName.length > 0)
       .sort((a, b) => b.xp - a.xp);
