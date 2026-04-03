@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storageGet, storageSet } from './storage';
 import { supabase } from './supabase';
 import { addXpToUser, getCurrentUser } from './auth';
 
@@ -80,16 +80,16 @@ export async function getPlaces() {
     const { data, error } = await supabase.from('places').select('*');
     if (!error && data && data.length > 0) {
       const places = data.map(rowToPlace);
-      await AsyncStorage.setItem(PLACES_KEY, JSON.stringify(places));
+      await storageSet(PLACES_KEY, JSON.stringify(places));
       return places;
     }
   } catch {}
 
   try {
-    const cached = await AsyncStorage.getItem(PLACES_KEY);
+    const cached = await storageGet(PLACES_KEY);
     if (cached) return JSON.parse(cached);
   } catch {}
-  await AsyncStorage.setItem(PLACES_KEY, JSON.stringify(SAMPLE_PLACES));
+  await storageSet(PLACES_KEY, JSON.stringify(SAMPLE_PLACES));
   return SAMPLE_PLACES;
 }
 
@@ -100,13 +100,13 @@ export async function getReviews(placeId) {
     const { data, error } = await query.order('created_at', { ascending: false });
     if (!error && data) {
       const reviews = data.map(rowToReview);
-      await AsyncStorage.setItem(REVIEWS_KEY, JSON.stringify(reviews));
+      await storageSet(REVIEWS_KEY, JSON.stringify(reviews));
       return reviews;
     }
   } catch {}
 
   try {
-    const cached = await AsyncStorage.getItem(REVIEWS_KEY);
+    const cached = await storageGet(REVIEWS_KEY);
     const all = cached ? JSON.parse(cached) : SAMPLE_REVIEWS;
     return placeId ? all.filter((r) => r.placeId === placeId) : all;
   } catch {}
@@ -125,10 +125,10 @@ export async function addPlace(place) {
   } catch {}
 
   try {
-    const cached = await AsyncStorage.getItem(PLACES_KEY);
+    const cached = await storageGet(PLACES_KEY);
     const places = cached ? JSON.parse(cached) : [];
     places.push(newPlace);
-    await AsyncStorage.setItem(PLACES_KEY, JSON.stringify(places));
+    await storageSet(PLACES_KEY, JSON.stringify(places));
   } catch {}
 
   return newPlace;
@@ -164,12 +164,12 @@ export async function addReview(review) {
   } catch {}
 
   try {
-    const cached = await AsyncStorage.getItem(REVIEWS_KEY);
+    const cached = await storageGet(REVIEWS_KEY);
     const reviews = cached ? JSON.parse(cached) : [];
     reviews.push(newReview);
-    await AsyncStorage.setItem(REVIEWS_KEY, JSON.stringify(reviews));
+    await storageSet(REVIEWS_KEY, JSON.stringify(reviews));
 
-    const placesCached = await AsyncStorage.getItem(PLACES_KEY);
+    const placesCached = await storageGet(PLACES_KEY);
     if (placesCached) {
       const places = JSON.parse(placesCached);
       const idx = places.findIndex((p) => p.id === newReview.placeId);
@@ -178,7 +178,7 @@ export async function addReview(review) {
         const avg = placeReviews.reduce((s, r) => s + r.rating, 0) / placeReviews.length;
         places[idx].avgRating = Math.round(avg * 10) / 10;
         places[idx].reviewCount = placeReviews.length;
-        await AsyncStorage.setItem(PLACES_KEY, JSON.stringify(places));
+        await storageSet(PLACES_KEY, JSON.stringify(places));
       }
     }
   } catch {}

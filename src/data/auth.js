@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storageGet, storageSet, storageRemove } from './storage';
 import { supabase } from './supabase';
 
 const AUTH_USER_KEY = '@appreton_auth_user';
@@ -159,7 +159,7 @@ export function getAllLevels() {
 // Get current logged-in user
 export async function getCurrentUser() {
   try {
-    const data = await AsyncStorage.getItem(AUTH_USER_KEY);
+    const data = await storageGet(AUTH_USER_KEY);
     return data ? JSON.parse(data) : null;
   } catch {
     return null;
@@ -188,9 +188,9 @@ export async function register(email, password) {
     profileCompleted: false,
   };
   creds[emailLower] = { password, userId };
-  await AsyncStorage.setItem(CREDENTIALS_KEY, JSON.stringify(creds));
+  await storageSet(CREDENTIALS_KEY, JSON.stringify(creds));
   await saveUserData(userId, user);
-  await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+  await storageSet(AUTH_USER_KEY, JSON.stringify(user));
   await addOrUpdateUserInList(user);
   return user;
 }
@@ -210,13 +210,13 @@ export async function loginWithEmail(email, password) {
   if (!userData) {
     throw new Error('Usuario no encontrado');
   }
-  await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(userData));
+  await storageSet(AUTH_USER_KEY, JSON.stringify(userData));
   return userData;
 }
 
 async function getCredentials() {
   try {
-    const data = await AsyncStorage.getItem(CREDENTIALS_KEY);
+    const data = await storageGet(CREDENTIALS_KEY);
     return data ? JSON.parse(data) : {};
   } catch {
     return {};
@@ -225,16 +225,16 @@ async function getCredentials() {
 
 async function saveUserData(userId, user) {
   try {
-    const data = await AsyncStorage.getItem(USERS_DATA_KEY);
+    const data = await storageGet(USERS_DATA_KEY);
     const users = data ? JSON.parse(data) : {};
     users[userId] = user;
-    await AsyncStorage.setItem(USERS_DATA_KEY, JSON.stringify(users));
+    await storageSet(USERS_DATA_KEY, JSON.stringify(users));
   } catch {}
 }
 
 async function getUserData(userId) {
   try {
-    const data = await AsyncStorage.getItem(USERS_DATA_KEY);
+    const data = await storageGet(USERS_DATA_KEY);
     const users = data ? JSON.parse(data) : {};
     return users[userId] || null;
   } catch {
@@ -258,7 +258,7 @@ export async function loginWithProvider(provider) {
     joinDate: new Date().toISOString().split('T')[0],
     profileCompleted: false,
   };
-  await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+  await storageSet(AUTH_USER_KEY, JSON.stringify(user));
   await addOrUpdateUserInList(user);
   return user;
 }
@@ -271,7 +271,7 @@ export async function saveUserProfile(updates) {
   // Recalculate level from XP
   const levelInfo = getLevelInfo(updated.xp);
   updated.level = levelInfo.level;
-  await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(updated));
+  await storageSet(AUTH_USER_KEY, JSON.stringify(updated));
   await saveUserData(updated.id, updated);
   await addOrUpdateUserInList(updated);
   return updated;
@@ -279,7 +279,7 @@ export async function saveUserProfile(updates) {
 
 // Logout
 export async function logout() {
-  await AsyncStorage.removeItem(AUTH_USER_KEY);
+  await storageRemove(AUTH_USER_KEY);
 }
 
 // Add XP to the current user (called after a review)
@@ -295,7 +295,7 @@ export async function addXpToUser() {
     totalReviews: newTotalReviews,
     level: levelInfo.level,
   };
-  await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(updated));
+  await storageSet(AUTH_USER_KEY, JSON.stringify(updated));
   await saveUserData(updated.id, updated);
   await addOrUpdateUserInList(updated);
   return { user: updated, levelInfo, leveledUp: levelInfo.level > user.level };
@@ -335,12 +335,12 @@ async function addOrUpdateUserInList(user) {
 
   // Also keep local cache
   try {
-    const data = await AsyncStorage.getItem(ALL_USERS_KEY);
+    const data = await storageGet(ALL_USERS_KEY);
     let users = data ? JSON.parse(data) : [];
     const index = users.findIndex((u) => u.id === user.id);
     if (index !== -1) users[index] = entry;
     else users.push(entry);
-    await AsyncStorage.setItem(ALL_USERS_KEY, JSON.stringify(users));
+    await storageSet(ALL_USERS_KEY, JSON.stringify(users));
   } catch {}
 }
 
@@ -369,7 +369,7 @@ export async function getAllUsersForRanking() {
 
   // Fallback: local cache + sample users
   try {
-    const data = await AsyncStorage.getItem(ALL_USERS_KEY);
+    const data = await storageGet(ALL_USERS_KEY);
     let users = data ? JSON.parse(data) : [];
     const hasSamples = users.some((u) => u.isSample);
     if (!hasSamples) {
@@ -378,7 +378,7 @@ export async function getAllUsersForRanking() {
         customAvatarUri: u.customAvatarUri, level: u.level,
         xp: u.xp, totalReviews: u.totalReviews, isSample: true,
       }))];
-      await AsyncStorage.setItem(ALL_USERS_KEY, JSON.stringify(users));
+      await storageSet(ALL_USERS_KEY, JSON.stringify(users));
     }
     return users
       .filter((u) => u.displayName && u.displayName.length > 0)
