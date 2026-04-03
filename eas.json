@@ -9,20 +9,20 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk",
-        "image": "latest"
+        "image": "ubuntu-22.04-jdk-17.0.3-node-18.17.1"
       }
     },
     "preview": {
       "distribution": "internal",
       "android": {
         "buildType": "apk",
-        "image": "latest"
+        "image": "ubuntu-22.04-jdk-17.0.3-node-18.17.1"
       }
     },
     "production": {
       "android": {
         "buildType": "app-bundle",
-        "image": "latest"
+        "image": "ubuntu-22.04-jdk-17.0.3-node-18.17.1"
       }
     }
   },
