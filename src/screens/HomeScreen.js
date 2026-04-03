@@ -93,19 +93,21 @@ export default function HomeScreen({ navigation }) {
     setPlaces(data);
   }
 
-  // Add distance to each place
-  const placesWithDistance = places.map((p) => {
-    if (userLocation && p.latitude && p.longitude) {
-      const dist = getDistanceKm(
-        userLocation.latitude,
-        userLocation.longitude,
-        p.latitude,
-        p.longitude
-      );
-      return { ...p, distance: dist, distanceText: formatDistance(dist) };
-    }
-    return { ...p, distance: null, distanceText: null };
-  });
+  // Add distance to each place and filter to 600m
+  const placesWithDistance = places
+    .map((p) => {
+      if (userLocation && p.latitude && p.longitude) {
+        const dist = getDistanceKm(
+          userLocation.latitude,
+          userLocation.longitude,
+          p.latitude,
+          p.longitude
+        );
+        return { ...p, distance: dist, distanceText: formatDistance(dist) };
+      }
+      return { ...p, distance: null, distanceText: null };
+    })
+    .filter((p) => !userLocation || p.distance === null || p.distance <= 0.6);
 
   const filtered = placesWithDistance
     .filter((p) => filter === 'todos' || p.type === filter)
