@@ -8,12 +8,12 @@ import {
   SafeAreaView,
   StatusBar,
 } from 'react-native';
-import MapView, { Marker, Circle } from 'react-native-maps';
+import { WebView } from 'react-native-webview';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { getPlaces } from '../data/store';
 
-const MAX_DISTANCE_KM = 0.6; // 600 metros
+const MAX_DISTANCE_KM = 0.6;
 
 function getDistanceKm(lat1, lon1, lat2, lon2) {
   const R = 6371;
@@ -36,19 +36,68 @@ const TYPE_EMOJI = {
   otro: '📍',
 };
 
-function ratingColor(rating) {
-  if (!rating || rating === 0) return '#999';
-  if (rating >= 4) return '#27AE60';
-  if (rating >= 3) return '#F39C12';
-  return '#E74C3C';
+function buildMapHtml(userLat, userLon, places) {
+  const markers = places
+    .map((p) => {
+      const emoji = TYPE_EMOJI[p.type] || '📍';
+      const rating = p.avgRating ? `${'💩'.repeat(Math.round(p.avgRating))} (${p.avgRating})` : 'Sin valorar';
+      return `
+        var marker_${p.id} = L.marker([${p.latitude}, ${p.longitude}])
+          .addTo(map)
+          .bindPopup('<b>${p.name.replace(/'/g, "\\'")}</b><br>${p.address.replace(/'/g, "\\'")}<br>${rating}');
+      `;
+    })
+    .join('\n');
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    body { margin: 0; padding: 0; }
+    #map { width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    var map = L.map('map').setView([${userLat}, ${userLon}], 16);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Circulo de 600m
+    L.circle([${userLat}, ${userLon}], {
+      radius: 600,
+      color: '#8B6914',
+      fillColor: '#8B6914',
+      fillOpacity: 0.08,
+      weight: 2
+    }).addTo(map);
+
+    // Marcador usuario
+    var userIcon = L.divIcon({
+      html: '<div style="background:#8B6914;width:14px;height:14px;border-radius:50%;border:3px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.4)"></div>',
+      iconSize: [20, 20],
+      iconAnchor: [10, 10],
+      className: ''
+    });
+    L.marker([${userLat}, ${userLon}], {icon: userIcon}).addTo(map).bindPopup('Tu estas aqui');
+
+    ${markers}
+  </script>
+</body>
+</html>`;
 }
 
-export default function MapScreen({ navigation }) {
+export default function MapScreen() {
   const [userLocation, setUserLocation] = useState(null);
   const [places, setPlaces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [locationError, setLocationError] = useState(null);
-  const [selectedPlace, setSelectedPlace] = useState(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -88,10 +137,12 @@ export default function MapScreen({ navigation }) {
   }
 
   const nearbyPlaces = userLocation
-    ? places.filter((p) => {
-        if (!p.latitude || !p.longitude) return false;
-        return getDistanceKm(userLocation.latitude, userLocation.longitude, p.latitude, p.longitude) <= MAX_DISTANCE_KM;
-      })
+    ? places.filter(
+        (p) =>
+          p.latitude &&
+          p.longitude &&
+          getDistanceKm(userLocation.latitude, userLocation.longitude, p.latitude, p.longitude) <= MAX_DISTANCE_KM
+      )
     : [];
 
   if (loading) {
@@ -115,15 +166,6 @@ export default function MapScreen({ navigation }) {
     );
   }
 
-  const initialRegion = userLocation
-    ? {
-        latitude: userLocation.latitude,
-        longitude: userLocation.longitude,
-        latitudeDelta: 0.012,
-        longitudeDelta: 0.012,
-      }
-    : null;
-
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar backgroundColor="#8B6914" barStyle="light-content" />
@@ -133,79 +175,20 @@ export default function MapScreen({ navigation }) {
           {nearbyPlaces.length} bano{nearbyPlaces.length !== 1 ? 's' : ''} en 600 m
         </Text>
       </View>
-
-      {initialRegion && (
-        <MapView
+      {userLocation && (
+        <WebView
           style={styles.map}
-          initialRegion={initialRegion}
-          showsUserLocation
-          showsMyLocationButton
-        >
-          {/* Radio de 600m */}
-          <Circle
-            center={userLocation}
-            radius={600}
-            strokeColor="rgba(139,105,20,0.5)"
-            fillColor="rgba(139,105,20,0.08)"
-            strokeWidth={2}
-          />
-
-          {/* Marcadores de sitios */}
-          {nearbyPlaces.map((place) => (
-            <Marker
-              key={place.id}
-              coordinate={{ latitude: place.latitude, longitude: place.longitude }}
-              onPress={() => setSelectedPlace(place)}
-            >
-              <View style={[styles.markerBubble, { borderColor: ratingColor(place.avgRating) }]}>
-                <Text style={styles.markerEmoji}>
-                  {TYPE_EMOJI[place.type] || '📍'}
-                </Text>
-              </View>
-            </Marker>
-          ))}
-        </MapView>
-      )}
-
-      {/* Info card del sitio seleccionado */}
-      {selectedPlace && (
-        <View style={styles.infoCard}>
-          <TouchableOpacity style={styles.closeBtn} onPress={() => setSelectedPlace(null)}>
-            <Text style={styles.closeText}>✕</Text>
-          </TouchableOpacity>
-          <Text style={styles.infoName}>{selectedPlace.name}</Text>
-          <Text style={styles.infoAddress}>{selectedPlace.address}</Text>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoRating}>
-              {'💩'.repeat(Math.round(selectedPlace.avgRating || 0)) || 'Sin valorar'}
-            </Text>
-            <Text style={styles.infoReviews}>
-              {selectedPlace.reviewCount || 0} opinion{(selectedPlace.reviewCount || 0) !== 1 ? 'es' : ''}
-            </Text>
-          </View>
-          <TouchableOpacity
-            style={styles.detailBtn}
-            onPress={() => {
-              setSelectedPlace(null);
-              navigation.navigate('Explorar', {
-                screen: 'PlaceDetail',
-                params: { place: selectedPlace },
-              });
-            }}
-          >
-            <Text style={styles.detailBtnText}>Ver detalles</Text>
-          </TouchableOpacity>
-        </View>
+          originWhitelist={['*']}
+          source={{ html: buildMapHtml(userLocation.latitude, userLocation.longitude, nearbyPlaces) }}
+          javaScriptEnabled
+        />
       )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: '#F5F0E1',
-  },
+  safe: { flex: 1, backgroundColor: '#F5F0E1' },
   centered: {
     flex: 1,
     alignItems: 'center',
@@ -213,123 +196,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F0E1',
     padding: 24,
   },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 15,
-    color: '#666',
-  },
-  errorEmoji: {
-    fontSize: 50,
-    marginBottom: 12,
-  },
-  errorText: {
-    fontSize: 15,
-    color: '#E74C3C',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  retryBtn: {
-    backgroundColor: '#8B6914',
-    paddingHorizontal: 28,
-    paddingVertical: 12,
-    borderRadius: 20,
-  },
-  retryText: {
-    color: '#FFF',
-    fontWeight: '700',
-  },
+  loadingText: { marginTop: 12, fontSize: 15, color: '#666' },
+  errorEmoji: { fontSize: 50, marginBottom: 12 },
+  errorText: { fontSize: 15, color: '#E74C3C', textAlign: 'center', marginBottom: 20 },
+  retryBtn: { backgroundColor: '#8B6914', paddingHorizontal: 28, paddingVertical: 12, borderRadius: 20 },
+  retryText: { color: '#FFF', fontWeight: '700' },
   header: {
     backgroundColor: '#8B6914',
     paddingTop: 16,
     paddingBottom: 12,
     paddingHorizontal: 20,
   },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#FFF',
-  },
-  headerSub: {
-    fontSize: 13,
-    color: '#F5DEB3',
-    marginTop: 2,
-  },
-  map: {
-    flex: 1,
-  },
-  markerBubble: {
-    backgroundColor: '#FFF',
-    borderRadius: 20,
-    padding: 6,
-    borderWidth: 2,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-  },
-  markerEmoji: {
-    fontSize: 20,
-  },
-  infoCard: {
-    position: 'absolute',
-    bottom: 20,
-    left: 16,
-    right: 16,
-    backgroundColor: '#FFF',
-    borderRadius: 18,
-    padding: 18,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-  },
-  closeBtn: {
-    position: 'absolute',
-    top: 12,
-    right: 14,
-    padding: 4,
-  },
-  closeText: {
-    fontSize: 16,
-    color: '#999',
-    fontWeight: '700',
-  },
-  infoName: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: '#2C3E50',
-    marginRight: 24,
-  },
-  infoAddress: {
-    fontSize: 13,
-    color: '#888',
-    marginTop: 4,
-    marginBottom: 8,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  infoRating: {
-    fontSize: 18,
-  },
-  infoReviews: {
-    fontSize: 13,
-    color: '#999',
-  },
-  detailBtn: {
-    backgroundColor: '#8B6914',
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  detailBtnText: {
-    color: '#FFF',
-    fontWeight: '700',
-    fontSize: 15,
-  },
+  headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#FFF' },
+  headerSub: { fontSize: 13, color: '#F5DEB3', marginTop: 2 },
+  map: { flex: 1 },
 });
