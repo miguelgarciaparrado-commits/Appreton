@@ -12,5 +12,14 @@ module.exports = (config) =>
       key: 'org.gradle.java.home',
       value: '/usr/lib/jvm/java-17-openjdk-amd64',
     });
+    // Tell async-storage v3.x to use Kotlin 2.1.0
+    props.modResults = props.modResults.filter(
+      (item) => !(item.type === 'property' && item.key === 'AsyncStorage_kotlinVersion')
+    );
+    props.modResults.push({
+      type: 'property',
+      key: 'AsyncStorage_kotlinVersion',
+      value: '2.1.0',
+    });
     return props;
   });
