@@ -1,45 +1,64 @@
-const { withDangerousMod } = require('@expo/config-plugins');
+const { withAndroidSettingsGradle, withDangerousMod } = require('@expo/config-plugins');
 const fs = require('fs');
 const path = require('path');
 
 /**
- * async-storage v3.x ships storage-android:1.0.0 inside its own
- * android/local_repo/ directory, but forgets to declare that repo
- * in android/build.gradle. This plugin patches that file to add it.
+ * Removes @react-native-async-storage/async-storage from the Android Gradle build entirely.
+ * async-storage v3.x causes Kotlin classpath conflicts that are impossible to resolve
+ * without this approach. Since we replaced all AsyncStorage usage with expo-file-system,
+ * the native module is not needed.
  */
-module.exports = (config) =>
-  withDangerousMod(config, [
+function withRemoveAsyncStorageFromSettings(config) {
+  return withAndroidSettingsGradle(config, (config) => {
+    const contents = config.modResults.contents;
+
+    // Remove the async-storage project include from settings.gradle
+    const cleaned = contents
+      .replace(/\n?include ':react-native-async-storage_async-storage'[^\n]*/g, '')
+      .replace(/\n?project\(':react-native-async-storage_async-storage'\)\.projectDir[^\n]*/g, '');
+
+    config.modResults.contents = cleaned;
+    console.log('[patch-async-storage] Removed async-storage from settings.gradle');
+    return config;
+  });
+}
+
+/**
+ * Also removes async-storage implementation from app/build.gradle if present.
+ */
+function withRemoveAsyncStorageFromAppBuild(config) {
+  return withDangerousMod(config, [
     'android',
     (config) => {
-      const buildGradlePath = path.join(
+      const appBuildGradlePath = path.join(
         config.modRequest.projectRoot,
-        'node_modules',
-        '@react-native-async-storage',
-        'async-storage',
         'android',
+        'app',
         'build.gradle'
       );
 
-      if (!fs.existsSync(buildGradlePath)) {
+      if (!fs.existsSync(appBuildGradlePath)) {
         return config;
       }
 
-      let content = fs.readFileSync(buildGradlePath, 'utf8');
+      let content = fs.readFileSync(appBuildGradlePath, 'utf8');
+      const cleaned = content.replace(
+        /\n?\s*implementation project\(':react-native-async-storage_async-storage'\)[^\n]*/g,
+        ''
+      );
 
-      // Only patch if not already patched
-      if (!content.includes('local_repo')) {
-        content = content.replace(
-          /repositories\s*\{\s*\n\s*mavenCentral\(\)\s*\n\s*google\(\)\s*\n\s*\}/,
-          `repositories {
-    maven { url = uri(new File(project.projectDir, "local_repo").absolutePath) }
-    mavenCentral()
-    google()
-}`
-        );
-        fs.writeFileSync(buildGradlePath, content);
-        console.log('[patch-async-storage] Patched build.gradle to add local_repo');
+      if (cleaned !== content) {
+        fs.writeFileSync(appBuildGradlePath, cleaned);
+        console.log('[patch-async-storage] Removed async-storage from app/build.gradle');
       }
 
       return config;
     },
   ]);
+}
+
+module.exports = (config) => {
+  config = withRemoveAsyncStorageFromSettings(config);
+  config = withRemoveAsyncStorageFromAppBuild(config);
+  return config;
+};
