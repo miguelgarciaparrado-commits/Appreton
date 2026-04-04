@@ -12,14 +12,23 @@ module.exports = (config) =>
       key: 'org.gradle.java.home',
       value: '/usr/lib/jvm/java-17-openjdk-amd64',
     });
-    // Tell async-storage v3.x to use Kotlin 2.1.0
+    // Tell async-storage v3.x to use Kotlin 1.9.25 (same as rootProject) to avoid classpath conflict
     props.modResults = props.modResults.filter(
       (item) => !(item.type === 'property' && item.key === 'AsyncStorage_kotlinVersion')
     );
     props.modResults.push({
       type: 'property',
       key: 'AsyncStorage_kotlinVersion',
-      value: '2.1.0',
+      value: '1.9.25',
+    });
+    // Override KSP version to one compatible with Kotlin 1.9.25
+    props.modResults = props.modResults.filter(
+      (item) => !(item.type === 'property' && item.key === 'AsyncStorage_kspVersion')
+    );
+    props.modResults.push({
+      type: 'property',
+      key: 'AsyncStorage_kspVersion',
+      value: '1.9.25-1.0.20',
     });
     return props;
   });
