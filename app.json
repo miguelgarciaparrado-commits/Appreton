@@ -39,6 +39,7 @@
     "plugins": [
       "./plugins/set-java-home",
       "./plugins/patch-async-storage",
+      "./plugins/patch-expo-modules",
       [
         "expo-build-properties",
         {
