@@ -4,39 +4,34 @@ const path = require('path');
 
 /**
  * Fix 1 (withProjectBuildGradle):
- *   Adds top-level ext { compileSdkVersion = 35 ... } to android/build.gradle
- *   so that safeExtGet() can find it via rootProject.ext.has().
+ *   Ensures top-level ext.compileSdkVersion / targetSdkVersion / minSdkVersion
+ *   exist in android/build.gradle so rootProject.ext.has() returns true.
  *
  * Fix 2 (withDangerousMod – ExpoModulesCorePlugin.gradle):
- *   a) Patches safeExtGet to fall back to rootProject.hasProperty() so values
- *      from gradle.properties are also accepted.
+ *   a) Patches useDefaultAndroidSdkVersions() to hardcode SDK 35/34/24, bypassing
+ *      safeExtGet() lookup issues entirely.
  *   b) Patches `from components.release` (broken in AGP 8.x) to use findByName().
  */
 function withProjectExtVersions(config) {
   return withProjectBuildGradle(config, (mod) => {
     let contents = mod.modResults.contents;
 
-    // Add standalone ext block at top level if not already there
-    if (!contents.includes('ext.compileSdkVersion') && !contents.includes('compileSdkVersion = 35')) {
-      const extBlock = `\next {\n    compileSdkVersion = 35\n    targetSdkVersion = 34\n    minSdkVersion = 24\n}\n\n`;
+    // Ensure top-level ext properties exist (safeExtGet reads from rootProject.ext)
+    if (!contents.includes('ext.compileSdkVersion = 35')) {
+      const extLines = `\next.compileSdkVersion = 35\next.targetSdkVersion = 34\next.minSdkVersion = 24\n\n`;
+      // Insert before allprojects{} if present, otherwise append
       const insertBefore = /allprojects\s*\{/;
       if (insertBefore.test(contents)) {
-        contents = contents.replace(insertBefore, (match) => extBlock + match);
+        contents = contents.replace(insertBefore, (match) => extLines + match);
+      } else if (contents.includes('apply plugin: "com.facebook.react.rootproject"')) {
+        contents = contents.replace(
+          'apply plugin: "com.facebook.react.rootproject"',
+          extLines + 'apply plugin: "com.facebook.react.rootproject"'
+        );
       } else {
-        contents += extBlock;
+        contents += extLines;
       }
-      console.log('[patch-expo-modules] Added ext versions to android/build.gradle');
-    } else if (!contents.includes('ext.compileSdkVersion')) {
-      // Already has compileSdkVersion = 35 somewhere (e.g. buildscript.ext from expo-build-properties)
-      // Ensure it's also at the top-level ext so rootProject.ext.has() finds it
-      const extBlock = `\next.compileSdkVersion = 35\next.targetSdkVersion = 34\next.minSdkVersion = 24\n\n`;
-      const insertBefore = /allprojects\s*\{/;
-      if (insertBefore.test(contents)) {
-        contents = contents.replace(insertBefore, (match) => extBlock + match);
-      } else {
-        contents += extBlock;
-      }
-      console.log('[patch-expo-modules] Added ext.compileSdkVersion lines to android/build.gradle');
+      console.log('[patch-expo-modules] Added ext.compileSdkVersion to android/build.gradle');
     }
 
     mod.modResults.contents = contents;
@@ -63,31 +58,77 @@ function withPatchedExpoModulesCore(config) {
       let content = fs.readFileSync(pluginPath, 'utf8');
       let changed = false;
 
-      // ── Patch 1: safeExtGet – also check rootProject.hasProperty() ──────────
-      // gradle.properties values land in project.properties, not project.ext.
-      // This lets compileSdkVersion=35 set in gradle.properties be found too.
-      const oldSafeExtGet = `    project.ext.safeExtGet = { prop, fallback ->
-      project.rootProject.ext.has(prop) ? project.rootProject.ext.get(prop) : fallback
-    }`;
-      const newSafeExtGet = `    project.ext.safeExtGet = { prop, fallback ->
-      if (project.rootProject.ext.has(prop)) {
-        return project.rootProject.ext.get(prop)
-      }
-      if (project.rootProject.hasProperty(prop)) {
-        def val = project.rootProject.properties[prop]
-        try { return val instanceof Integer ? val : Integer.parseInt(val.toString()) } catch (e) { return val }
-      }
-      return fallback
-    }`;
+      // ── Patch 1: hardcode SDK versions in useDefaultAndroidSdkVersions ─────
+      // safeExtGet has lookup issues with expo-build-properties' gradle.properties keys.
+      // Hardcoding ensures compileSdkVersion is always set correctly.
+      const oldSdkVersions = `ext.useDefaultAndroidSdkVersions = {
+  project.android {
+    compileSdkVersion project.ext.safeExtGet("compileSdkVersion", 34)
 
-      if (content.includes(oldSafeExtGet)) {
-        content = content.replace(oldSafeExtGet, newSafeExtGet);
+    defaultConfig {
+      minSdkVersion project.ext.safeExtGet("minSdkVersion", 23)
+      targetSdkVersion project.ext.safeExtGet("targetSdkVersion", 34)
+    }
+
+    lintOptions {
+      abortOnError false
+    }
+  }
+}`;
+      const newSdkVersions = `ext.useDefaultAndroidSdkVersions = {
+  def compileSdk = 35
+  def minSdk = 24
+  def targetSdk = 34
+  // Try safeExtGet first; fall back to hardcoded values for expo-build-properties compat
+  try {
+    if (project.ext.has("safeExtGet")) {
+      def v = project.ext.safeExtGet("compileSdkVersion", compileSdk)
+      if (v != null) { compileSdk = v instanceof Integer ? v : v.toString().toInteger() }
+      def m = project.ext.safeExtGet("minSdkVersion", minSdk)
+      if (m != null) { minSdk = m instanceof Integer ? m : m.toString().toInteger() }
+      def t = project.ext.safeExtGet("targetSdkVersion", targetSdk)
+      if (t != null) { targetSdk = t instanceof Integer ? t : t.toString().toInteger() }
+    }
+  } catch (ignored) {}
+  project.android {
+    compileSdkVersion compileSdk
+
+    defaultConfig {
+      minSdkVersion minSdk
+      targetSdkVersion targetSdk
+    }
+
+    lintOptions {
+      abortOnError false
+    }
+  }
+}`;
+
+      if (content.includes(oldSdkVersions)) {
+        content = content.replace(oldSdkVersions, newSdkVersions);
         changed = true;
-        console.log('[patch-expo-modules] Patched ExpoModulesCorePlugin.gradle (safeExtGet)');
+        console.log('[patch-expo-modules] Patched ExpoModulesCorePlugin.gradle (useDefaultAndroidSdkVersions)');
+      } else if (content.includes('compileSdkVersion project.ext.safeExtGet("compileSdkVersion", 34)')) {
+        // Fallback: just replace the single compileSdkVersion line
+        content = content.replace(
+          'compileSdkVersion project.ext.safeExtGet("compileSdkVersion", 34)',
+          'compileSdkVersion 35'
+        );
+        content = content.replace(
+          'minSdkVersion project.ext.safeExtGet("minSdkVersion", 23)',
+          'minSdkVersion 24'
+        );
+        content = content.replace(
+          'targetSdkVersion project.ext.safeExtGet("targetSdkVersion", 34)',
+          'targetSdkVersion 34'
+        );
+        changed = true;
+        console.log('[patch-expo-modules] Patched ExpoModulesCorePlugin.gradle (compileSdkVersion hardcode fallback)');
       }
 
       // ── Patch 2: components.release → findByName() for AGP 8.x ─────────────
-      const oldBlock = `  project.afterEvaluate {
+      if (content.includes('from components.release')) {
+        const oldBlock = `  project.afterEvaluate {
     publishing {
       publications {
         release(MavenPublication) {
@@ -101,7 +142,7 @@ function withPatchedExpoModulesCore(config) {
       }
     }
   }`;
-      const newBlock = `  project.afterEvaluate {
+        const newBlock = `  project.afterEvaluate {
     def releaseComponent = project.components.findByName("release")
     if (releaseComponent != null) {
       publishing {
@@ -119,7 +160,6 @@ function withPatchedExpoModulesCore(config) {
     }
   }`;
 
-      if (content.includes('from components.release')) {
         if (content.includes(oldBlock)) {
           content = content.replace(oldBlock, newBlock);
         } else {
