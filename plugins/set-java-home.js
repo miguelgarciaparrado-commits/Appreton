@@ -15,6 +15,11 @@ module.exports = (config) =>
     // Limit JVM memory to avoid Gradle Worker Daemon crashes
     set('org.gradle.jvmargs', '-Xmx1536m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8');
 
+    // Ensure compileSdkVersion is available as a Gradle property (expo-modules need it)
+    set('compileSdkVersion', '35');
+    set('targetSdkVersion', '34');
+    set('minSdkVersion', '24');
+
     // async-storage v3 with Kotlin 1.9.25 needs a compatible KSP version.
     // Without this, it falls back to ksp 2.1.0-1.0.28 which conflicts with Kotlin 1.9.25.
     set('AsyncStorage_kspVersion', '1.9.25-1.0.20');
