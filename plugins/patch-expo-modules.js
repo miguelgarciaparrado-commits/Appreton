@@ -4,33 +4,39 @@ const path = require('path');
 
 /**
  * Fix 1 (withProjectBuildGradle):
- *   Adds ext.compileSdkVersion / targetSdkVersion / minSdkVersion to the ROOT
- *   android/build.gradle so that expo-modules-core's safeExtGet() can read them
- *   via rootProject.ext.has("compileSdkVersion").
+ *   Adds top-level ext { compileSdkVersion = 35 ... } to android/build.gradle
+ *   so that safeExtGet() can find it via rootProject.ext.has().
  *
- * Fix 2 (withDangerousMod):
- *   Patches ExpoModulesCorePlugin.gradle to avoid the AGP 8.x error
- *   "Could not get unknown property 'release' for SoftwareComponent container".
- *   Uses components.findByName("release") with a null-guard instead of the
- *   bare components.release property access.
+ * Fix 2 (withDangerousMod – ExpoModulesCorePlugin.gradle):
+ *   a) Patches safeExtGet to fall back to rootProject.hasProperty() so values
+ *      from gradle.properties are also accepted.
+ *   b) Patches `from components.release` (broken in AGP 8.x) to use findByName().
  */
 function withProjectExtVersions(config) {
   return withProjectBuildGradle(config, (mod) => {
     let contents = mod.modResults.contents;
 
-    // Only add if not already present
-    if (!contents.includes('ext.compileSdkVersion')) {
-      // Insert after the first `allprojects {` block opening, or before `subprojects`
-      // Safest: insert at the very end of the top-level `buildscript {}` block.
-      // We add a standalone ext block right before `allprojects`.
-      const insertBefore = /allprojects\s*\{/;
+    // Add standalone ext block at top level if not already there
+    if (!contents.includes('ext.compileSdkVersion') && !contents.includes('compileSdkVersion = 35')) {
       const extBlock = `\next {\n    compileSdkVersion = 35\n    targetSdkVersion = 34\n    minSdkVersion = 24\n}\n\n`;
+      const insertBefore = /allprojects\s*\{/;
       if (insertBefore.test(contents)) {
         contents = contents.replace(insertBefore, (match) => extBlock + match);
       } else {
-        // Fallback: append at end
         contents += extBlock;
       }
+      console.log('[patch-expo-modules] Added ext versions to android/build.gradle');
+    } else if (!contents.includes('ext.compileSdkVersion')) {
+      // Already has compileSdkVersion = 35 somewhere (e.g. buildscript.ext from expo-build-properties)
+      // Ensure it's also at the top-level ext so rootProject.ext.has() finds it
+      const extBlock = `\next.compileSdkVersion = 35\next.targetSdkVersion = 34\next.minSdkVersion = 24\n\n`;
+      const insertBefore = /allprojects\s*\{/;
+      if (insertBefore.test(contents)) {
+        contents = contents.replace(insertBefore, (match) => extBlock + match);
+      } else {
+        contents += extBlock;
+      }
+      console.log('[patch-expo-modules] Added ext.compileSdkVersion lines to android/build.gradle');
     }
 
     mod.modResults.contents = contents;
@@ -55,11 +61,33 @@ function withPatchedExpoModulesCore(config) {
       }
 
       let content = fs.readFileSync(pluginPath, 'utf8');
+      let changed = false;
 
-      // Replace the problematic `from components.release` with a null-safe version.
-      // AGP 8.x does not expose `components.release` as a dynamic property; use findByName() instead.
-      if (content.includes('from components.release')) {
-        const oldBlock = `  project.afterEvaluate {
+      // ── Patch 1: safeExtGet – also check rootProject.hasProperty() ──────────
+      // gradle.properties values land in project.properties, not project.ext.
+      // This lets compileSdkVersion=35 set in gradle.properties be found too.
+      const oldSafeExtGet = `    project.ext.safeExtGet = { prop, fallback ->
+      project.rootProject.ext.has(prop) ? project.rootProject.ext.get(prop) : fallback
+    }`;
+      const newSafeExtGet = `    project.ext.safeExtGet = { prop, fallback ->
+      if (project.rootProject.ext.has(prop)) {
+        return project.rootProject.ext.get(prop)
+      }
+      if (project.rootProject.hasProperty(prop)) {
+        def val = project.rootProject.properties[prop]
+        try { return val instanceof Integer ? val : Integer.parseInt(val.toString()) } catch (e) { return val }
+      }
+      return fallback
+    }`;
+
+      if (content.includes(oldSafeExtGet)) {
+        content = content.replace(oldSafeExtGet, newSafeExtGet);
+        changed = true;
+        console.log('[patch-expo-modules] Patched ExpoModulesCorePlugin.gradle (safeExtGet)');
+      }
+
+      // ── Patch 2: components.release → findByName() for AGP 8.x ─────────────
+      const oldBlock = `  project.afterEvaluate {
     publishing {
       publications {
         release(MavenPublication) {
@@ -73,7 +101,7 @@ function withPatchedExpoModulesCore(config) {
       }
     }
   }`;
-        const newBlock = `  project.afterEvaluate {
+      const newBlock = `  project.afterEvaluate {
     def releaseComponent = project.components.findByName("release")
     if (releaseComponent != null) {
       publishing {
@@ -91,18 +119,20 @@ function withPatchedExpoModulesCore(config) {
     }
   }`;
 
+      if (content.includes('from components.release')) {
         if (content.includes(oldBlock)) {
           content = content.replace(oldBlock, newBlock);
-          console.log('[patch-expo-modules] Patched ExpoModulesCorePlugin.gradle (components.release)');
         } else {
-          // Fallback: simple line replacement (may leave malformed braces if context changed)
           content = content.replace(
             '          from components.release',
             '          from project.components.findByName("release")'
           );
-          console.log('[patch-expo-modules] Applied fallback components.release line patch');
         }
+        changed = true;
+        console.log('[patch-expo-modules] Patched ExpoModulesCorePlugin.gradle (components.release)');
+      }
 
+      if (changed) {
         fs.writeFileSync(pluginPath, content);
       }
 
