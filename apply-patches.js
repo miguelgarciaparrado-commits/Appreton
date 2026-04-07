@@ -64,19 +64,46 @@ if (content.includes(oldApply)) {
 fs.writeFileSync(pluginPath, content);
 
 // ── Parche 2: expo-font/android/build.gradle ─────────────────────────────
-// Añadir compileSdkVersion 35 directamente al android{} block de expo-font
+// Reemplazar completamente las llamadas a funciones expo con implementación directa
+// porque applyKotlinExpoModulesCorePlugin() falla silenciosamente para expo-font
 const expoFontPath = path.join(__dirname, 'node_modules', 'expo-font', 'android', 'build.gradle');
 let fontContent = fs.readFileSync(expoFontPath, 'utf8').replace(/\r\n/g, '\n');
 
-if (!fontContent.includes('compileSdkVersion 35')) {
-  fontContent = fontContent.replace(
-    'android {\n  namespace "expo.modules.font"',
-    'android {\n  compileSdkVersion 35\n  namespace "expo.modules.font"'
-  );
-  fs.writeFileSync(expoFontPath, fontContent);
-  console.log('[OK] expo-font/android/build.gradle - añadido compileSdkVersion 35');
+if (!fontContent.includes('EXPO_FONT_PATCHED')) {
+  const newFontContent = `// EXPO_FONT_PATCHED
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
+group = 'host.exp.exponent'
+version = '13.0.4'
+
+def expoModulesCorePlugin = new File(project(":expo-modules-core").projectDir.absolutePath, "ExpoModulesCorePlugin.gradle")
+apply from: expoModulesCorePlugin
+
+android {
+  compileSdkVersion 35
+  namespace "expo.modules.font"
+  defaultConfig {
+    minSdkVersion 24
+    targetSdkVersion 34
+    versionCode 29
+    versionName "13.0.4"
+  }
+  lintOptions {
+    abortOnError false
+  }
+}
+
+dependencies {
+  implementation project(':expo-modules-core')
+  implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.25"
+  implementation 'com.facebook.react:react-android'
+}
+`;
+  fs.writeFileSync(expoFontPath, newFontContent);
+  console.log('[OK] expo-font/android/build.gradle - reemplazado con configuración directa');
 } else {
-  console.log('[--] expo-font/android/build.gradle - ya tiene compileSdkVersion 35');
+  console.log('[--] expo-font/android/build.gradle - ya parcheado');
 }
 
 console.log('\nEjecuta:');
