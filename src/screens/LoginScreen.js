@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { register, loginWithEmail, loginWithProvider } from '../data/auth';
 
@@ -30,13 +31,24 @@ export default function LoginScreen({ onLogin }) {
   const [error, setError] = useState('');
 
   async function handleProvider(providerKey) {
+    if (providerKey === 'instagram') {
+      Alert.alert(
+        'No disponible',
+        'El inicio de sesión con Instagram no está disponible todavía. Usa Google, Facebook o Apple.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
     setLoading(true);
     setError('');
     try {
       const user = await loginWithProvider(providerKey);
       onLogin(user);
-    } catch {
-      setError('No se pudo iniciar sesion');
+    } catch (e) {
+      const msg = e.message || '';
+      if (!msg.includes('cancelado') && !msg.includes('cancel')) {
+        setError(msg || 'No se pudo iniciar sesion');
+      }
     } finally {
       setLoading(false);
     }
@@ -89,7 +101,7 @@ export default function LoginScreen({ onLogin }) {
           <View style={styles.brandSection}>
             <Text style={styles.poopEmoji}>💩</Text>
             <Text style={styles.appName}>Appreton</Text>
-            <Text style={styles.tagline}>La app para encontrar{'\n'}el bano perfecto</Text>
+            <Text style={styles.tagline}>La app perfecta para{'\n'}solucionar un apretón</Text>
           </View>
 
           {mode === 'providers' && (

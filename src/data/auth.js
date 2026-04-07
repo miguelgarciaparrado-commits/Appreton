@@ -1,5 +1,9 @@
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import { storageGet, storageSet, storageRemove } from './storage';
 import { supabase } from './supabase';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const AUTH_USER_KEY = '@appreton_auth_user';
 const ALL_USERS_KEY = '@appreton_all_users';
@@ -242,13 +246,80 @@ async function getUserData(userId) {
   }
 }
 
-// Mock login - simulates OAuth by creating a user record
+// Providers supported by Supabase OAuth
+const SUPABASE_OAUTH_PROVIDERS = {
+  google: 'google',
+  facebook: 'facebook',
+  apple: 'apple',
+};
+
+// Login with OAuth provider via Supabase + in-app browser
 export async function loginWithProvider(provider) {
-  const userId = 'user_' + Date.now().toString();
-  const user = {
-    id: userId,
-    displayName: '',
-    email: `${provider}_user_${Date.now()}@appreton.app`,
+  const supabaseProvider = SUPABASE_OAUTH_PROVIDERS[provider];
+
+  if (!supabaseProvider) {
+    throw new Error('Este proveedor no está disponible todavía. Usa Google, Facebook o Apple.');
+  }
+
+  const redirectUrl = Linking.createURL('auth/callback');
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: supabaseProvider,
+    options: {
+      redirectTo: redirectUrl,
+      skipBrowserRedirect: true,
+    },
+  });
+
+  if (error) throw new Error(error.message);
+  if (!data?.url) throw new Error('No se pudo iniciar la autenticación');
+
+  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+
+  if (result.type === 'cancel' || result.type === 'dismiss') {
+    throw new Error('Inicio de sesión cancelado');
+  }
+  if (result.type !== 'success') {
+    throw new Error('No se pudo completar el inicio de sesión');
+  }
+
+  // Try to extract session tokens from the callback URL
+  const callbackUrl = result.url;
+  const hashPart = callbackUrl.split('#')[1];
+  let sessionSet = false;
+
+  if (hashPart) {
+    const params = new URLSearchParams(hashPart);
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+    if (accessToken) {
+      await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken || '',
+      });
+      sessionSet = true;
+    }
+  }
+
+  if (!sessionSet) {
+    // PKCE flow: exchange code for session
+    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(callbackUrl);
+    if (exchangeError) throw new Error(exchangeError.message);
+  }
+
+  const { data: { user: authUser }, error: userError } = await supabase.auth.getUser();
+  if (userError || !authUser) throw new Error('No se pudo obtener la información del usuario');
+
+  // Reuse existing profile or create a new one
+  const existingData = await getUserData(authUser.id);
+  const user = existingData || {
+    id: authUser.id,
+    displayName:
+      authUser.user_metadata?.full_name ||
+      authUser.user_metadata?.name ||
+      authUser.email?.split('@')[0] ||
+      '',
+    email: authUser.email || '',
     provider,
     avatarType: 'poop_1',
     customAvatarUri: null,
@@ -258,7 +329,9 @@ export async function loginWithProvider(provider) {
     joinDate: new Date().toISOString().split('T')[0],
     profileCompleted: false,
   };
+
   await storageSet(AUTH_USER_KEY, JSON.stringify(user));
+  await saveUserData(authUser.id, user);
   await addOrUpdateUserInList(user);
   return user;
 }
