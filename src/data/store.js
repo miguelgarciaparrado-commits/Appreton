@@ -76,7 +76,6 @@ async function seedSupabaseIfEmpty() {
 
 export async function getPlaces() {
   try {
-    await seedSupabaseIfEmpty();
     const { data, error } = await supabase.from('places').select('*');
     if (!error && data && data.length > 0) {
       const places = data.map(rowToPlace);
@@ -89,8 +88,7 @@ export async function getPlaces() {
     const cached = await storageGet(PLACES_KEY);
     if (cached) return JSON.parse(cached);
   } catch {}
-  await storageSet(PLACES_KEY, JSON.stringify(SAMPLE_PLACES));
-  return SAMPLE_PLACES;
+  return [];
 }
 
 export async function getReviews(placeId) {
