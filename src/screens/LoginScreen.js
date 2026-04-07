@@ -17,9 +17,6 @@ import { register, loginWithEmail, loginWithProvider } from '../data/auth';
 
 const PROVIDERS = [
   { key: 'google', label: 'Continuar con Google', color: '#DB4437', icon: '🌐' },
-  { key: 'instagram', label: 'Continuar con Instagram', color: '#E1306C', icon: '📷' },
-  { key: 'facebook', label: 'Continuar con Facebook', color: '#4267B2', icon: '👤' },
-  { key: 'apple', label: 'Continuar con Apple', color: '#000000', icon: '🍎' },
 ];
 
 export default function LoginScreen({ onLogin }) {
@@ -31,14 +28,6 @@ export default function LoginScreen({ onLogin }) {
   const [error, setError] = useState('');
 
   async function handleProvider(providerKey) {
-    if (providerKey === 'instagram') {
-      Alert.alert(
-        'No disponible',
-        'El inicio de sesión con Instagram no está disponible todavía. Usa Google, Facebook o Apple.',
-        [{ text: 'OK' }]
-      );
-      return;
-    }
     setLoading(true);
     setError('');
     try {
