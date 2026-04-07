@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { getCurrentUser, saveUserProfile } from '../data/auth';
+import { supabase } from '../data/supabase';
 import PoopAvatar, { getAllPoopAvatars } from '../components/PoopAvatar';
 
 export default function ProfileSetupScreen({ onComplete }) {
@@ -82,21 +83,41 @@ export default function ProfileSetupScreen({ onComplete }) {
   }
 
   async function handleSave() {
-    if (!displayName.trim()) {
+    const trimmedName = displayName.trim();
+
+    if (!trimmedName) {
       Alert.alert('Oops', 'Elige un nombre de usuario');
       return;
     }
-    if (displayName.trim().length < 3) {
+    if (trimmedName.length < 3) {
       Alert.alert('Oops', 'El nombre debe tener al menos 3 caracteres');
       return;
     }
     if (!gender) {
-      Alert.alert('Oops', 'Selecciona tu genero');
+      Alert.alert('Oops', 'Selecciona tu género');
       return;
     }
 
+    // Comprobar si el nombre ya está en uso por otro usuario
+    try {
+      const currentUser = await getCurrentUser();
+      const { data } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .ilike('display_name', trimmedName)
+        .neq('id', currentUser?.id || '')
+        .limit(1);
+
+      if (data && data.length > 0) {
+        Alert.alert('Nombre no disponible', 'Ese nombre de usuario ya está en uso. Elige otro.');
+        return;
+      }
+    } catch {
+      // Si falla la comprobación, dejamos continuar
+    }
+
     await saveUserProfile({
-      displayName: displayName.trim(),
+      displayName: trimmedName,
       gender,
       avatarType,
       customAvatarUri: avatarType === 'custom' ? customAvatarUri : null,
