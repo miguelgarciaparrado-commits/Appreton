@@ -113,8 +113,35 @@ export async function getReviews(placeId) {
   return placeId ? SAMPLE_REVIEWS.filter((r) => r.placeId === placeId) : SAMPLE_REVIEWS;
 }
 
+// Crea un lugar en la BD si no existe (idempotente)
+// Usado cuando un sitio de Google recibe su primera opinión
+export async function ensurePlaceExists(place) {
+  const id = place.id; // ya tiene el prefijo g_ si viene de Google
+
+  // Comprobar si ya existe en Supabase
+  try {
+    const { data } = await supabase.from('places').select('id').eq('id', id).single();
+    if (data) return; // ya existe
+  } catch {}
+
+  // Comprobar caché local
+  try {
+    const cached = await storageGet(PLACES_KEY);
+    const places = cached ? JSON.parse(cached) : [];
+    if (places.find((p) => p.id === id)) return;
+  } catch {}
+
+  // Crear el lugar
+  await addPlace({ ...place, id });
+}
+
 export async function addPlace(place) {
-  const newPlace = { ...place, id: Date.now().toString(), avgRating: 0, reviewCount: 0 };
+  const newPlace = {
+    ...place,
+    id: place.id || Date.now().toString(),
+    avgRating: 0,
+    reviewCount: 0,
+  };
 
   try {
     await supabase.from('places').insert({

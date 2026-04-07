@@ -62,10 +62,6 @@ export default function App() {
       const currentUser = await getCurrentUser();
       if (!currentUser) {
         setAuthState('login');
-      } else if (currentUser.provider !== 'email') {
-        // Old mock OAuth session — force re-login with new email/password system
-        await logout();
-        setAuthState('login');
       } else if (!currentUser.profileCompleted) {
         setUser(currentUser);
         setAuthState('setup');
@@ -148,10 +144,10 @@ export default function App() {
           }}
         />
         <Tab.Screen
-          name="Anadir"
+          name="Sugerir"
           component={AddPlaceScreen}
           options={{
-            title: 'Anadir sitio',
+            title: 'Sugerir sitio',
             tabBarIcon: ({ focused }) => <TabIcon emoji={'\u2795'} focused={focused} />,
           }}
         />
