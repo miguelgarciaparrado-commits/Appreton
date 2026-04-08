@@ -77,8 +77,9 @@ async function seedSupabaseIfEmpty() {
 export async function getPlaces() {
   try {
     const { data, error } = await supabase.from('places').select('*');
-    if (!error && data && data.length > 0) {
+    if (!error && data) {
       const places = data.map(rowToPlace);
+      // Sincroniza caché local con Supabase (aunque esté vacío)
       await storageSet(PLACES_KEY, JSON.stringify(places));
       return places;
     }
