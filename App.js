@@ -76,7 +76,11 @@ export default function App() {
 
   function handleLogin(loggedInUser) {
     setUser(loggedInUser);
-    setAuthState('setup');
+    if (loggedInUser.profileCompleted) {
+      setAuthState('app');
+    } else {
+      setAuthState('setup');
+    }
   }
 
   function handleProfileComplete() {
