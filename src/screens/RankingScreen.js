@@ -56,19 +56,19 @@ export default function RankingScreen() {
 
       const allPlaces = await getPlaces();
 
-      // Distancia, filtro ≤ 700 m, orden por distancia (más cercano primero) y luego por nota
+      // Distancia, filtro ≤ 600 m, orden por mejor valoracion primero
       const nearby = allPlaces
         .map((p) => {
           const distKm = getDistanceKm(userLat, userLon, p.latitude, p.longitude);
           const distMeters = Math.round(distKm * 1000);
           return { ...p, distMeters };
         })
-        .filter((p) => p.distMeters <= 700)
+        .filter((p) => p.distMeters <= 600)
         .filter((p) => p.reviewCount > 0)
         .sort((a, b) => {
-          // Primero por distancia, luego por nota como desempate
-          if (a.distMeters !== b.distMeters) return a.distMeters - b.distMeters;
-          return b.avgRating - a.avgRating;
+          // Primero por nota, luego por distancia como desempate
+          if (b.avgRating !== a.avgRating) return b.avgRating - a.avgRating;
+          return a.distMeters - b.distMeters;
         });
 
       setNearbyPlaces(nearby);
@@ -108,7 +108,7 @@ export default function RankingScreen() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
         <Text style={styles.title}>🏆 Ranking cercano</Text>
-        <Text style={styles.subtitle}>Los mejores WC a menos de 700 m</Text>
+        <Text style={styles.subtitle}>Los mejores WC a menos de 600 m</Text>
       </View>
 
       {loading ? (
@@ -130,7 +130,7 @@ export default function RankingScreen() {
           ListEmptyComponent={
             <View style={styles.empty}>
               <Text style={styles.emptyIcon}>🚽</Text>
-              <Text style={styles.emptyText}>No hay WC valorados a menos de 700 m</Text>
+              <Text style={styles.emptyText}>No hay WC valorados a menos de 600 m</Text>
               <Text style={styles.emptySubtext}>Opina sobre los sitios cercanos en Explorar</Text>
             </View>
           }
