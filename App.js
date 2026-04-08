@@ -2,7 +2,35 @@ import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Text, ActivityIndicator, View } from 'react-native';
+import { Text, ActivityIndicator, View, TouchableOpacity, StyleSheet } from 'react-native';
+
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false }; }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={eb.container}>
+          <Text style={eb.emoji}>💩</Text>
+          <Text style={eb.title}>Algo salio mal</Text>
+          <Text style={eb.sub}>Reinicia la aplicacion para continuar</Text>
+          <TouchableOpacity style={eb.btn} onPress={() => this.setState({ hasError: false })}>
+            <Text style={eb.btnText}>Reintentar</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+const eb = StyleSheet.create({
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F5F0E1', padding: 32 },
+  emoji: { fontSize: 64 },
+  title: { fontSize: 22, fontWeight: 'bold', color: '#333', marginTop: 16 },
+  sub: { fontSize: 14, color: '#888', marginTop: 8, textAlign: 'center' },
+  btn: { marginTop: 24, backgroundColor: '#8B6914', paddingHorizontal: 32, paddingVertical: 14, borderRadius: 12 },
+  btnText: { color: '#FFF', fontWeight: '700', fontSize: 16 },
+});
 
 import HomeScreen from './src/screens/HomeScreen';
 import PlaceDetailScreen from './src/screens/PlaceDetailScreen';
@@ -15,6 +43,7 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import AppretoneroRankingScreen from './src/screens/AppretoneroRankingScreen';
 import MapScreen from './src/screens/MapScreen';
 import { getCurrentUser, logout } from './src/data/auth';
+import { storageGet, storageRemove } from './src/data/storage';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -59,6 +88,9 @@ export default function App() {
 
   async function checkAuth() {
     try {
+      // Migración: limpiar datos incompatibles de versiones antiguas
+      await migrateOldData();
+
       const currentUser = await getCurrentUser();
       if (!currentUser) {
         setAuthState('login');
@@ -72,6 +104,22 @@ export default function App() {
     } catch {
       setAuthState('login');
     }
+  }
+
+  // Limpia datos del sistema de auth antiguo (IDs locales user_TIMESTAMP)
+  async function migrateOldData() {
+    try {
+      const raw = await storageGet('@appreton_auth_user');
+      if (!raw) return;
+      const user = JSON.parse(raw);
+      // IDs del sistema antiguo empezaban por 'user_' (no son UUIDs de Supabase)
+      if (user && user.id && user.id.startsWith('user_')) {
+        await storageRemove('@appreton_auth_user');
+        await storageRemove('@appreton_credentials');
+        await storageRemove('@appreton_all_users');
+        await storageRemove('@appreton_users_data');
+      }
+    } catch {}
   }
 
   function handleLogin(loggedInUser) {
@@ -105,14 +153,15 @@ export default function App() {
   }
 
   if (authState === 'login') {
-    return <LoginScreen onLogin={handleLogin} />;
+    return <ErrorBoundary><LoginScreen onLogin={handleLogin} /></ErrorBoundary>;
   }
 
   if (authState === 'setup') {
-    return <ProfileSetupScreen onComplete={handleProfileComplete} />;
+    return <ErrorBoundary><ProfileSetupScreen onComplete={handleProfileComplete} /></ErrorBoundary>;
   }
 
   return (
+    <ErrorBoundary>
     <NavigationContainer>
       <Tab.Navigator
         screenOptions={{
@@ -188,5 +237,6 @@ export default function App() {
         </Tab.Screen>
       </Tab.Navigator>
     </NavigationContainer>
+    </ErrorBoundary>
   );
 }
