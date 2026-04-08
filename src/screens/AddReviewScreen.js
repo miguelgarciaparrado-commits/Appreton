@@ -84,13 +84,15 @@ export default function AddReviewScreen({ route, navigation }) {
             <Text style={styles.ratingHint}>
               {rating === 0
                 ? 'Toca las cacas para valorar'
-                : rating <= 2
-                ? 'Uf, que asco... 🤢'
-                : rating <= 3
+                : rating === 1
+                ? 'Terrible, mejor aguantarse 🤮'
+                : rating === 2
+                ? 'Bastante malo, que asco 🤢'
+                : rating === 3
                 ? 'Podria estar mejor 😐'
-                : rating <= 4
+                : rating === 4
                 ? 'Bastante bien! 👍'
-                : 'Impecable! ✨'}
+                : 'Impecable, un placer 🌟'}
             </Text>
           </View>
 
