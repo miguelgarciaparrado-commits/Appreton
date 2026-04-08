@@ -45,7 +45,7 @@ export default function AddReviewScreen({ route, navigation }) {
       return;
     }
     if (!comment.trim()) {
-      Alert.alert('Ey!', 'Escribe un comentario sobre el bano');
+      Alert.alert('Ey!', 'Escribe un comentario sobre el WC');
       return;
     }
 
@@ -77,7 +77,7 @@ export default function AddReviewScreen({ route, navigation }) {
 
           {/* Rating */}
           <View style={styles.section}>
-            <Text style={styles.label}>Limpieza del bano</Text>
+            <Text style={styles.label}>Limpieza del WC</Text>
             <View style={styles.ratingContainer}>
               <PoopRating rating={rating} onRate={setRating} size={40} />
             </View>
@@ -99,7 +99,7 @@ export default function AddReviewScreen({ route, navigation }) {
             <Text style={styles.label}>Tu opinion</Text>
             <TextInput
               style={styles.commentInput}
-              placeholder="Cuenta como estaba el bano..."
+              placeholder="Cuenta como estaba el WC..."
               placeholderTextColor="#999"
               multiline
               numberOfLines={4}
@@ -147,7 +147,7 @@ export default function AddReviewScreen({ route, navigation }) {
           {/* Required order */}
           <View style={styles.section}>
             <Text style={styles.label}>Consumicion obligatoria</Text>
-            <Text style={styles.hint}>Te obligaron a pedir algo para usar el bano?</Text>
+            <Text style={styles.hint}>Te obligaron a pedir algo para usar el WC?</Text>
             <View style={styles.orderRow}>
               <TouchableOpacity
                 style={[
@@ -182,7 +182,7 @@ export default function AddReviewScreen({ route, navigation }) {
 
           {/* Extras */}
           <View style={styles.section}>
-            <Text style={styles.label}>Extras del bano</Text>
+            <Text style={styles.label}>Extras del WC</Text>
             <Text style={styles.hint}>Selecciona lo que tiene</Text>
             <View style={styles.extraGrid}>
               {EXTRAS_OPTIONS.map((opt) => {

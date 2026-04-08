@@ -90,7 +90,7 @@ export default function NearbyScreen({ navigation }) {
     return (
       <SafeAreaView style={styles.centered}>
         <ActivityIndicator size="large" color="#8B6914" />
-        <Text style={styles.loadingText}>Buscando banos cercanos...</Text>
+        <Text style={styles.loadingText}>Buscando WC cercanos...</Text>
       </SafeAreaView>
     );
   }
@@ -103,7 +103,7 @@ export default function NearbyScreen({ navigation }) {
         <Text style={styles.headerSub}>
           {locationError
             ? locationError
-            : `${nearby.length} bano${nearby.length !== 1 ? 's' : ''} en menos de 600 m`}
+            : `${nearby.length} WC en menos de 600 m`}
         </Text>
       </View>
 
@@ -114,7 +114,7 @@ export default function NearbyScreen({ navigation }) {
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>🚽</Text>
-            <Text style={styles.emptyText}>No hay banos a menos de 600 m</Text>
+            <Text style={styles.emptyText}>No hay WC valorados a menos de 600 m</Text>
             <Text style={styles.emptySubtext}>Prueba a añadir uno con el botón +</Text>
           </View>
         }

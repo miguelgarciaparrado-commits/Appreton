@@ -13,7 +13,7 @@ const USERS_DATA_KEY = '@appreton_users_data';
 // Level definitions
 const LEVELS = [
   { level: 1, title: 'Cagoncete', minXp: 0 },
-  { level: 2, title: 'Explorador de Banos', minXp: 100 },
+  { level: 2, title: 'Explorador de WC', minXp: 100 },
   { level: 3, title: 'Critico de Retretes', minXp: 250 },
   { level: 4, title: 'Inspector de WC', minXp: 500 },
   { level: 5, title: 'Maestro Cagador', minXp: 1000 },
@@ -39,7 +39,7 @@ const SAMPLE_USERS = [
   },
   {
     id: 'sample_2',
-    displayName: 'LaReinaDelBano',
+    displayName: 'LaReinaDelWC',
     email: 'reina@mail.com',
     provider: 'instagram',
     avatarType: 'poop_1',
@@ -91,7 +91,7 @@ const SAMPLE_USERS = [
   },
   {
     id: 'sample_6',
-    displayName: 'BuscaBanos',
+    displayName: 'BuscaWC',
     email: 'busca@mail.com',
     provider: 'instagram',
     avatarType: 'poop_4',

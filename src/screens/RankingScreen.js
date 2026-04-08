@@ -114,7 +114,7 @@ export default function RankingScreen() {
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#8B6914" />
-          <Text style={styles.loadingText}>Buscando banos cerca de ti...</Text>
+          <Text style={styles.loadingText}>Buscando WC cerca de ti...</Text>
         </View>
       ) : locationError ? (
         <View style={styles.empty}>
