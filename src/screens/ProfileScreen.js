@@ -11,6 +11,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { getCurrentUser, getLevelInfo, getAllLevels, logout } from '../data/auth';
 import PoopAvatar from '../components/PoopAvatar';
+import { CURRENT_VERSION, CHANGELOG } from '../version';
 
 export default function ProfileScreen({ onLogout, onEditProfile }) {
   const [user, setUser] = useState(null);
@@ -194,6 +195,31 @@ export default function ProfileScreen({ onLogout, onEditProfile }) {
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
           <Text style={styles.logoutBtnText}>Cerrar sesion</Text>
         </TouchableOpacity>
+
+        {/* Versión y changelog */}
+        <View style={styles.versionSection}>
+          <Text style={styles.versionTitle}>Historial de versiones</Text>
+          {CHANGELOG.map((entry) => (
+            <View key={entry.version} style={styles.versionCard}>
+              <View style={styles.versionHeader}>
+                <View style={styles.versionBadge}>
+                  <Text style={styles.versionBadgeText}>v{entry.version}</Text>
+                </View>
+                {entry.version === CURRENT_VERSION && (
+                  <View style={styles.currentBadge}>
+                    <Text style={styles.currentBadgeText}>Actual</Text>
+                  </View>
+                )}
+                <Text style={styles.versionDate}>{entry.date}</Text>
+              </View>
+              {entry.changes.map((change, i) => (
+                <Text key={i} style={styles.changeItem}>• {change}</Text>
+              ))}
+            </View>
+          ))}
+        </View>
+
+        <Text style={styles.versionFooter}>Appreton v{CURRENT_VERSION} 💩</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -433,5 +459,68 @@ const styles = StyleSheet.create({
     color: '#E74C3C',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  versionSection: {
+    marginHorizontal: 20,
+    marginTop: 28,
+  },
+  versionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2C3E50',
+    marginBottom: 12,
+  },
+  versionCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+    elevation: 1,
+  },
+  versionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  versionBadge: {
+    backgroundColor: '#8B6914',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  versionBadgeText: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  currentBadge: {
+    backgroundColor: '#27AE60',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  currentBadgeText: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  versionDate: {
+    fontSize: 12,
+    color: '#999',
+    marginLeft: 'auto',
+  },
+  changeItem: {
+    fontSize: 13,
+    color: '#555',
+    marginBottom: 3,
+    lineHeight: 18,
+  },
+  versionFooter: {
+    textAlign: 'center',
+    fontSize: 12,
+    color: '#BBB',
+    marginTop: 16,
+    marginBottom: 32,
   },
 });
