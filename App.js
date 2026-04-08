@@ -156,11 +156,11 @@ export default function App() {
           }}
         />
         <Tab.Screen
-          name="Banos"
+          name="Top WC"
           component={RankingScreen}
           options={{
             headerShown: false,
-            tabBarLabel: 'Banos',
+            tabBarLabel: 'Top WC',
             tabBarIcon: ({ focused }) => <TabIcon emoji={'\uD83C\uDFC6'} focused={focused} />,
           }}
         />

@@ -108,7 +108,7 @@ export default function RankingScreen() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
         <Text style={styles.title}>🏆 Ranking cercano</Text>
-        <Text style={styles.subtitle}>Los mejores baños a menos de 700 m</Text>
+        <Text style={styles.subtitle}>Los mejores WC a menos de 700 m</Text>
       </View>
 
       {loading ? (
@@ -130,7 +130,7 @@ export default function RankingScreen() {
           ListEmptyComponent={
             <View style={styles.empty}>
               <Text style={styles.emptyIcon}>🚽</Text>
-              <Text style={styles.emptyText}>No hay baños valorados a menos de 700 m</Text>
+              <Text style={styles.emptyText}>No hay WC valorados a menos de 700 m</Text>
               <Text style={styles.emptySubtext}>Opina sobre los sitios cercanos en Explorar</Text>
             </View>
           }

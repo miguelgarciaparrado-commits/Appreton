@@ -125,7 +125,7 @@ export default function AddPlaceScreen({ navigation }) {
 
     Alert.alert(
       '¡Sugerencia enviada! 🚽',
-      'Gracias por tu aportación. Ya puedes añadir tu opinión sobre el baño.',
+      'Gracias por tu aportacion. Ya puedes añadir tu opinion sobre el WC.',
       [{ text: 'OK', onPress: () => navigation.goBack() }]
     );
   }
@@ -143,13 +143,13 @@ export default function AddPlaceScreen({ navigation }) {
             <Text style={styles.infoTitle}>¿No aparece el sitio en Explorar?</Text>
             <Text style={styles.infoText}>
               Explorar usa Google Places para mostrarte establecimientos cercanos. Si hay un
-              sitio con baño que no aparece ahí, sugiérelo aquí y lo añadimos.
+              sitio con WC que no aparece ahi, sugierelo aqui y lo anadimos.
             </Text>
           </View>
 
           <Text style={styles.title}>💩 Sugerir sitio nuevo</Text>
           <Text style={styles.subtitle}>
-            Sugiere un sitio con baño que no aparezca en el mapa de Explorar
+            Sugiere un sitio con WC que no aparezca en el mapa de Explorar
           </Text>
 
           {/* Ubicación */}

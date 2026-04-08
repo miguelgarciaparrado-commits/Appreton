@@ -99,7 +99,7 @@ export default function PlaceDetailScreen({ route, navigation }) {
               <Text style={styles.firstReviewEmoji}>💩</Text>
               <Text style={styles.firstReviewTitle}>¡Sé el primero en opinar!</Text>
               <Text style={styles.firstReviewSubtitle}>
-                Cuéntanos cómo está el baño de este sitio
+                Cuentanos como esta el WC de este sitio
               </Text>
               <View style={styles.firstReviewBtn}>
                 <Text style={styles.firstReviewBtnText}>+ Añadir opinión</Text>
