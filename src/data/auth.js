@@ -417,7 +417,7 @@ async function addOrUpdateUserInList(user) {
   } catch {}
 }
 
-// Get all users for ranking — Supabase first, local cache fallback
+// Get all users for ranking — solo Supabase
 export async function getAllUsersForRanking() {
   try {
     const { data, error } = await supabase
@@ -425,38 +425,19 @@ export async function getAllUsersForRanking() {
       .select('*')
       .order('xp', { ascending: false });
 
-    if (!error && data && data.length > 0) {
-      const users = data.map((u) => ({
-        id: u.id,
-        displayName: u.display_name,
-        avatarType: u.avatar_type,
-        customAvatarUri: u.custom_avatar_uri,
-        level: u.level,
-        xp: u.xp,
-        totalReviews: u.total_reviews,
-        isSample: u.is_sample,
-      }));
-      return users.filter((u) => u.displayName && u.displayName.length > 0);
+    if (!error && data) {
+      return data
+        .map((u) => ({
+          id: u.id,
+          displayName: u.display_name,
+          avatarType: u.avatar_type,
+          customAvatarUri: u.custom_avatar_uri,
+          level: u.level,
+          xp: u.xp,
+          totalReviews: u.total_reviews,
+        }))
+        .filter((u) => u.displayName && u.displayName.length > 0);
     }
   } catch {}
-
-  // Fallback: local cache + sample users
-  try {
-    const data = await storageGet(ALL_USERS_KEY);
-    let users = data ? JSON.parse(data) : [];
-    const hasSamples = users.some((u) => u.isSample);
-    if (!hasSamples) {
-      users = [...users, ...SAMPLE_USERS.map((u) => ({
-        id: u.id, displayName: u.displayName, avatarType: u.avatarType,
-        customAvatarUri: u.customAvatarUri, level: u.level,
-        xp: u.xp, totalReviews: u.totalReviews, isSample: true,
-      }))];
-      await storageSet(ALL_USERS_KEY, JSON.stringify(users));
-    }
-    return users
-      .filter((u) => u.displayName && u.displayName.length > 0)
-      .sort((a, b) => b.xp - a.xp);
-  } catch {
-    return [];
-  }
+  return [];
 }
