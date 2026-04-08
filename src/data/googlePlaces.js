@@ -18,13 +18,10 @@ const TYPES_FOOD_DRINK = [
 const TYPES_OTHER = [
   'gas_station',
   'shopping_mall',
-  'lodging',
   'supermarket',
   'department_store',
   'movie_theater',
   'gym',
-  'hospital',
-  'sports_complex',
 ];
 
 function mapGoogleTypeToAppType(primaryType) {
@@ -88,7 +85,8 @@ export async function fetchNearbyPlaces(latitude, longitude, radiusMeters = 600)
     const places = [];
 
     for (const p of [...foodResults, ...otherResults]) {
-      if (p.businessStatus === 'CLOSED_PERMANENTLY') continue;
+      // Solo establecimientos operativos (excluye barrios, áreas, cerrados)
+      if (p.businessStatus !== 'OPERATIONAL') continue;
       if (seen.has(p.id)) continue;
       seen.add(p.id);
       places.push(normalizePlace(p, latitude, longitude));

@@ -106,10 +106,10 @@ export async function getReviews(placeId) {
 
   try {
     const cached = await storageGet(REVIEWS_KEY);
-    const all = cached ? JSON.parse(cached) : SAMPLE_REVIEWS;
+    const all = cached ? JSON.parse(cached) : [];
     return placeId ? all.filter((r) => r.placeId === placeId) : all;
   } catch {}
-  return placeId ? SAMPLE_REVIEWS.filter((r) => r.placeId === placeId) : SAMPLE_REVIEWS;
+  return [];
 }
 
 // Crea un lugar en la BD si no existe (idempotente)
