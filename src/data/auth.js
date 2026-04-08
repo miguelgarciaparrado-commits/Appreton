@@ -310,25 +310,54 @@ export async function loginWithProvider(provider) {
   const { data: { user: authUser }, error: userError } = await supabase.auth.getUser();
   if (userError || !authUser) throw new Error('No se pudo obtener la información del usuario');
 
-  // Reuse existing profile or create a new one
-  const existingData = await getUserData(authUser.id);
-  const user = existingData || {
-    id: authUser.id,
-    displayName:
-      authUser.user_metadata?.full_name ||
-      authUser.user_metadata?.name ||
-      authUser.email?.split('@')[0] ||
-      '',
-    email: authUser.email || '',
-    provider,
-    avatarType: 'poop_1',
-    customAvatarUri: null,
-    level: 1,
-    xp: 0,
-    totalReviews: 0,
-    joinDate: new Date().toISOString().split('T')[0],
-    profileCompleted: false,
-  };
+  // Reuse existing profile: check Supabase first, then local storage, then create new
+  let user = null;
+
+  try {
+    const { data: supabaseProfile } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('id', authUser.id)
+      .single();
+
+    if (supabaseProfile) {
+      user = {
+        id: supabaseProfile.id,
+        displayName: supabaseProfile.display_name || '',
+        email: supabaseProfile.email || authUser.email || '',
+        provider: supabaseProfile.provider || provider,
+        avatarType: supabaseProfile.avatar_type || 'poop_1',
+        customAvatarUri: supabaseProfile.custom_avatar_uri || null,
+        level: supabaseProfile.level || 1,
+        xp: supabaseProfile.xp || 0,
+        totalReviews: supabaseProfile.total_reviews || 0,
+        joinDate: supabaseProfile.join_date || new Date().toISOString().split('T')[0],
+        profileCompleted: supabaseProfile.profile_completed || false,
+        gender: supabaseProfile.gender || null,
+      };
+    }
+  } catch {}
+
+  if (!user) {
+    const existingData = await getUserData(authUser.id);
+    user = existingData || {
+      id: authUser.id,
+      displayName:
+        authUser.user_metadata?.full_name ||
+        authUser.user_metadata?.name ||
+        authUser.email?.split('@')[0] ||
+        '',
+      email: authUser.email || '',
+      provider,
+      avatarType: 'poop_1',
+      customAvatarUri: null,
+      level: 1,
+      xp: 0,
+      totalReviews: 0,
+      joinDate: new Date().toISOString().split('T')[0],
+      profileCompleted: false,
+    };
+  }
 
   await storageSet(AUTH_USER_KEY, JSON.stringify(user));
   await saveUserData(authUser.id, user);
