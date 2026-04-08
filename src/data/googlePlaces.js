@@ -1,26 +1,30 @@
 import { GOOGLE_PLACES_API_KEY } from '../config';
 
-// Tipos de establecimientos que pueden tener retrete
-const INCLUDED_TYPES = [
+// Dos grupos de tipos para hacer dos llamadas y no perder bares por el límite de 20
+const TYPES_FOOD_DRINK = [
   'restaurant',
   'bar',
   'cafe',
+  'night_club',
+  'pub',
+  'wine_bar',
+  'sports_bar',
+  'cocktail_bar',
+  'coffee_shop',
+  'fast_food_restaurant',
+  'food_court',
+];
+
+const TYPES_OTHER = [
   'gas_station',
   'shopping_mall',
   'lodging',
-  'pharmacy',
   'supermarket',
-  'convenience_store',
-  'night_club',
+  'department_store',
   'movie_theater',
   'gym',
   'hospital',
-  'bakery',
-  'department_store',
-  'food_court',
   'sports_complex',
-  'tourist_attraction',
-  'transit_station',
 ];
 
 function mapGoogleTypeToAppType(primaryType) {
@@ -32,50 +36,65 @@ function mapGoogleTypeToAppType(primaryType) {
   return 'otro';
 }
 
+async function searchNearby(latitude, longitude, radiusMeters, includedTypes) {
+  const response = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
+      'X-Goog-FieldMask':
+        'places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.businessStatus',
+    },
+    body: JSON.stringify({
+      locationRestriction: {
+        circle: { center: { latitude, longitude }, radius: radiusMeters },
+      },
+      includedTypes,
+      maxResultCount: 20,
+    }),
+  });
+  const json = await response.json();
+  return json.places || [];
+}
+
+function normalizePlace(p, latitude, longitude) {
+  return {
+    id: `g_${p.id}`,
+    googlePlaceId: p.id,
+    name: p.displayName?.text || 'Sin nombre',
+    address: p.formattedAddress || '',
+    latitude: p.location?.latitude ?? latitude,
+    longitude: p.location?.longitude ?? longitude,
+    type: mapGoogleTypeToAppType(p.primaryType || ''),
+    avgRating: 0,
+    reviewCount: 0,
+    isGoogleOnly: true,
+  };
+}
+
 export async function fetchNearbyPlaces(latitude, longitude, radiusMeters = 600) {
   if (!GOOGLE_PLACES_API_KEY || GOOGLE_PLACES_API_KEY === 'TU_CLAVE_API_AQUI') {
     return [];
   }
 
   try {
-    const response = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
-        'X-Goog-FieldMask':
-          'places.id,places.displayName,places.formattedAddress,places.location,places.primaryType,places.businessStatus',
-      },
-      body: JSON.stringify({
-        locationRestriction: {
-          circle: {
-            center: { latitude, longitude },
-            radius: radiusMeters,
-          },
-        },
-        includedTypes: INCLUDED_TYPES,
-        maxResultCount: 20,
-      }),
-    });
+    // Dos llamadas en paralelo para no limitar bares por el máximo de 20 resultados
+    const [foodResults, otherResults] = await Promise.all([
+      searchNearby(latitude, longitude, radiusMeters, TYPES_FOOD_DRINK),
+      searchNearby(latitude, longitude, radiusMeters, TYPES_OTHER),
+    ]);
 
-    const json = await response.json();
-    if (!json.places) return [];
+    const seen = new Set();
+    const places = [];
 
-    return json.places
-      .filter((p) => p.businessStatus !== 'CLOSED_PERMANENTLY')
-      .map((p) => ({
-        // Prefijo g_ para identificar origen Google
-        id: `g_${p.id}`,
-        googlePlaceId: p.id,
-        name: p.displayName?.text || 'Sin nombre',
-        address: p.formattedAddress || '',
-        latitude: p.location?.latitude ?? latitude,
-        longitude: p.location?.longitude ?? longitude,
-        type: mapGoogleTypeToAppType(p.primaryType || ''),
-        avgRating: 0,
-        reviewCount: 0,
-        isGoogleOnly: true,
-      }));
+    for (const p of [...foodResults, ...otherResults]) {
+      if (p.businessStatus === 'CLOSED_PERMANENTLY') continue;
+      if (seen.has(p.id)) continue;
+      seen.add(p.id);
+      places.push(normalizePlace(p, latitude, longitude));
+    }
+
+    return places;
   } catch {
     return [];
   }
