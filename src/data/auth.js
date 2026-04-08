@@ -170,16 +170,27 @@ export async function getCurrentUser() {
   }
 }
 
-// Register new user with email + password
+// Register new user with email + password via Supabase Auth
 export async function register(email, password) {
   const emailLower = email.trim().toLowerCase();
-  const creds = await getCredentials();
-  if (creds[emailLower]) {
-    throw new Error('Este email ya esta registrado');
+
+  const { data, error } = await supabase.auth.signUp({
+    email: emailLower,
+    password,
+  });
+
+  if (error) {
+    if (error.message.includes('already registered') || error.message.includes('already been registered')) {
+      throw new Error('Este email ya esta registrado');
+    }
+    throw new Error(error.message);
   }
-  const userId = 'user_' + Date.now().toString();
+
+  const authUser = data.user;
+  if (!authUser) throw new Error('No se pudo crear la cuenta');
+
   const user = {
-    id: userId,
+    id: authUser.id,
     displayName: '',
     email: emailLower,
     provider: 'email',
@@ -191,40 +202,85 @@ export async function register(email, password) {
     joinDate: new Date().toISOString().split('T')[0],
     profileCompleted: false,
   };
-  creds[emailLower] = { password, userId };
-  await storageSet(CREDENTIALS_KEY, JSON.stringify(creds));
-  await saveUserData(userId, user);
+
   await storageSet(AUTH_USER_KEY, JSON.stringify(user));
+  await saveUserData(authUser.id, user);
   await addOrUpdateUserInList(user);
   return user;
 }
 
-// Login with email + password
+// Login with email + password via Supabase Auth
 export async function loginWithEmail(email, password) {
   const emailLower = email.trim().toLowerCase();
-  const creds = await getCredentials();
-  if (!creds[emailLower]) {
-    throw new Error('Email no encontrado. Registrate primero');
+
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: emailLower,
+    password,
+  });
+
+  if (error) {
+    if (error.message.includes('Invalid login credentials') || error.message.includes('invalid_credentials')) {
+      throw new Error('Email o contrasena incorrectos');
+    }
+    throw new Error(error.message);
   }
-  if (creds[emailLower].password !== password) {
-    throw new Error('Contrasena incorrecta');
+
+  const authUser = data.user;
+  if (!authUser) throw new Error('No se pudo iniciar sesion');
+
+  // Check Supabase profile first
+  let user = null;
+  try {
+    const { data: supabaseProfile } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('id', authUser.id)
+      .single();
+
+    if (supabaseProfile) {
+      user = {
+        id: supabaseProfile.id,
+        displayName: supabaseProfile.display_name || '',
+        email: supabaseProfile.email || emailLower,
+        provider: 'email',
+        avatarType: supabaseProfile.avatar_type || 'poop_1',
+        customAvatarUri: supabaseProfile.custom_avatar_uri || null,
+        level: supabaseProfile.level || 1,
+        xp: supabaseProfile.xp || 0,
+        totalReviews: supabaseProfile.total_reviews || 0,
+        joinDate: supabaseProfile.join_date || new Date().toISOString().split('T')[0],
+        profileCompleted: supabaseProfile.profile_completed || false,
+        gender: supabaseProfile.gender || null,
+      };
+    }
+  } catch {}
+
+  if (!user) {
+    const localData = await getUserData(authUser.id);
+    user = localData || {
+      id: authUser.id,
+      displayName: '',
+      email: emailLower,
+      provider: 'email',
+      avatarType: 'poop_1',
+      customAvatarUri: null,
+      level: 1,
+      xp: 0,
+      totalReviews: 0,
+      joinDate: new Date().toISOString().split('T')[0],
+      profileCompleted: false,
+    };
   }
-  const userId = creds[emailLower].userId;
-  const userData = await getUserData(userId);
-  if (!userData) {
-    throw new Error('Usuario no encontrado');
-  }
-  await storageSet(AUTH_USER_KEY, JSON.stringify(userData));
-  return userData;
+
+  await storageSet(AUTH_USER_KEY, JSON.stringify(user));
+  await saveUserData(authUser.id, user);
+  return user;
 }
 
-async function getCredentials() {
-  try {
-    const data = await storageGet(CREDENTIALS_KEY);
-    return data ? JSON.parse(data) : {};
-  } catch {
-    return {};
-  }
+// Forgot password — sends reset email via Supabase
+export async function forgotPassword(email) {
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase());
+  if (error) throw new Error(error.message);
 }
 
 async function saveUserData(userId, user) {

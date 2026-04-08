@@ -13,19 +13,20 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import { register, loginWithEmail, loginWithProvider } from '../data/auth';
+import { register, loginWithEmail, loginWithProvider, forgotPassword } from '../data/auth';
 
 const PROVIDERS = [
   { key: 'google', label: 'Continuar con Google', color: '#DB4437', icon: '🌐' },
 ];
 
 export default function LoginScreen({ onLogin }) {
-  const [mode, setMode] = useState('providers'); // 'providers' | 'login' | 'register'
+  const [mode, setMode] = useState('providers'); // 'providers' | 'login' | 'register' | 'forgot'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [forgotSent, setForgotSent] = useState(false);
 
   async function handleProvider(providerKey) {
     setLoading(true);
@@ -38,6 +39,23 @@ export default function LoginScreen({ onLogin }) {
       if (!msg.includes('cancelado') && !msg.includes('cancel')) {
         setError(msg || 'No se pudo iniciar sesion');
       }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleForgotPassword() {
+    setError('');
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError('Introduce un email valido');
+      return;
+    }
+    setLoading(true);
+    try {
+      await forgotPassword(email);
+      setForgotSent(true);
+    } catch (e) {
+      setError(e.message || 'No se pudo enviar el email');
     } finally {
       setLoading(false);
     }
@@ -200,6 +218,15 @@ export default function LoginScreen({ onLogin }) {
                 )}
               </TouchableOpacity>
 
+              {mode === 'login' && (
+                <TouchableOpacity
+                  style={styles.forgotBtn}
+                  onPress={() => { setMode('forgot'); setError(''); setForgotSent(false); }}
+                >
+                  <Text style={styles.forgotText}>Olvide mi contrasena</Text>
+                </TouchableOpacity>
+              )}
+
               <TouchableOpacity
                 onPress={() => {
                   setMode(mode === 'login' ? 'register' : 'login');
@@ -216,6 +243,62 @@ export default function LoginScreen({ onLogin }) {
                   </Text>
                 </Text>
               </TouchableOpacity>
+            </View>
+          )}
+
+          {mode === 'forgot' && (
+            <View style={styles.card}>
+              <TouchableOpacity onPress={() => { setMode('login'); setError(''); setForgotSent(false); }} style={styles.backBtn}>
+                <Text style={styles.backText}>← Volver</Text>
+              </TouchableOpacity>
+
+              <Text style={styles.cardTitle}>Recuperar contrasena</Text>
+
+              {forgotSent ? (
+                <View style={styles.sentBox}>
+                  <Text style={styles.sentIcon}>📧</Text>
+                  <Text style={styles.sentTitle}>Email enviado</Text>
+                  <Text style={styles.sentText}>
+                    Revisa tu bandeja de entrada y sigue el enlace para restablecer tu contrasena.
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.submitBtn}
+                    onPress={() => { setMode('login'); setForgotSent(false); }}
+                  >
+                    <Text style={styles.submitText}>Volver al inicio</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <>
+                  <Text style={styles.forgotDesc}>
+                    Introduce tu email y te enviaremos un enlace para restablecer tu contrasena.
+                  </Text>
+                  <Text style={styles.label}>Email</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="tu@email.com"
+                    placeholderTextColor="#BBB"
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                  {error ? <Text style={styles.errorText}>{error}</Text> : null}
+                  <TouchableOpacity
+                    style={[styles.submitBtn, { marginTop: 20 }]}
+                    onPress={handleForgotPassword}
+                    disabled={loading}
+                    activeOpacity={0.8}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color="#FFF" />
+                    ) : (
+                      <Text style={styles.submitText}>Enviar enlace</Text>
+                    )}
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           )}
 
@@ -311,4 +394,11 @@ const styles = StyleSheet.create({
   switchText: { fontSize: 14, color: '#888' },
   switchLink: { color: '#8B6914', fontWeight: '700' },
   footer: { fontSize: 11, color: '#BBB', textAlign: 'center', marginTop: 24 },
+  forgotBtn: { alignItems: 'center', marginTop: 12 },
+  forgotText: { fontSize: 13, color: '#8B6914', fontWeight: '600' },
+  forgotDesc: { fontSize: 14, color: '#666', marginBottom: 16, lineHeight: 20 },
+  sentBox: { alignItems: 'center', paddingVertical: 8 },
+  sentIcon: { fontSize: 48, marginBottom: 12 },
+  sentTitle: { fontSize: 18, fontWeight: 'bold', color: '#27AE60', marginBottom: 8 },
+  sentText: { fontSize: 14, color: '#666', textAlign: 'center', lineHeight: 20, marginBottom: 20 },
 });
