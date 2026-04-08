@@ -232,28 +232,40 @@ export default function HomeScreen({ navigation }) {
         />
       </View>
 
-      <FlatList
-        data={filtered}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <PlaceCard
-            place={item}
-            onPress={() => navigation.navigate('PlaceDetail', { place: item })}
-          />
-        )}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          isLoading ? null : (
-            <View style={styles.empty}>
-              <Text style={styles.emptyIcon}>🚽</Text>
-              <Text style={styles.emptyText}>
-                {locationError ? 'Activa la ubicacion para ver sitios cercanos' : 'No se encontraron sitios en 600 m'}
-              </Text>
-              <Text style={styles.emptySubtext}>Sugiere uno en la pestaña Sugerir</Text>
-            </View>
-          )
-        }
-      />
+      {locationLoading ? (
+        <View style={styles.empty}>
+          <ActivityIndicator size="large" color="#8B6914" style={{ marginTop: 40 }} />
+          <Text style={styles.locationText}>Obteniendo tu ubicación...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filtered}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <PlaceCard
+              place={item}
+              onPress={() => navigation.navigate('PlaceDetail', { place: item })}
+            />
+          )}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={
+            googleLoading ? (
+              <View style={styles.empty}>
+                <ActivityIndicator size="large" color="#4285F4" style={{ marginTop: 40 }} />
+                <Text style={styles.locationText}>Cargando establecimientos cercanos...</Text>
+              </View>
+            ) : (
+              <View style={styles.empty}>
+                <Text style={styles.emptyIcon}>🚽</Text>
+                <Text style={styles.emptyText}>
+                  {locationError ? 'Activa la ubicación para ver sitios cercanos' : 'No se encontraron sitios en 600 m'}
+                </Text>
+                <Text style={styles.emptySubtext}>Sugiere uno en la pestaña Sugerir</Text>
+              </View>
+            )
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
