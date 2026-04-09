@@ -1,6 +1,6 @@
 // Historial de versiones de Appreton
-// Al hacer cambios: actualizar CURRENT_VERSION y añadir entrada al CHANGELOG
-// También actualizar "version" y "versionCode" en app.json
+// Al hacer cambios: actualizar CURRENT_VERSION y anadir entrada al CHANGELOG
+// Tambien actualizar "version" y "versionCode" en app.json
 
 export const CURRENT_VERSION = '1.1.0';
 
@@ -15,9 +15,9 @@ export const CHANGELOG = [
       'Registro con email via Supabase',
       'Perfil guardado en la nube (no se pierde al reinstalar)',
       'Ranking muestra los mejor valorados a 600 m',
-      'Sustituido "bano" por "WC" en toda la app',
+      'Sustituido bano por WC en toda la app',
       'Mensajes unicos por puntuacion (1-5 cacas)',
-      'Pestaña "Sugerir sitio" para lugares no en Google',
+      'Pestana Sugerir sitio para lugares no en Google',
       'Corregido fallo al actualizar la app',
     ],
   },

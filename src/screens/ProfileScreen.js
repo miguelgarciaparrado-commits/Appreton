@@ -196,7 +196,7 @@ export default function ProfileScreen({ onLogout, onEditProfile }) {
           <Text style={styles.logoutBtnText}>Cerrar sesion</Text>
         </TouchableOpacity>
 
-        {/* Versión y changelog */}
+        {/* Version y changelog */}
         <View style={styles.versionSection}>
           <Text style={styles.versionTitle}>Historial de versiones</Text>
           {CHANGELOG.map((entry) => (
@@ -213,13 +213,13 @@ export default function ProfileScreen({ onLogout, onEditProfile }) {
                 <Text style={styles.versionDate}>{entry.date}</Text>
               </View>
               {entry.changes.map((change, i) => (
-                <Text key={i} style={styles.changeItem}>• {change}</Text>
+                <Text key={i} style={styles.changeItem}>- {change}</Text>
               ))}
             </View>
           ))}
         </View>
 
-        <Text style={styles.versionFooter}>Appreton v{CURRENT_VERSION} 💩</Text>
+        <Text style={styles.versionFooter}>Appreton v{CURRENT_VERSION}</Text>
       </ScrollView>
     </SafeAreaView>
   );
