@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Text, ActivityIndicator, View, TouchableOpacity, StyleSheet } from 'react-native';
+import * as Linking from 'expo-linking';
 
 class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { hasError: false }; }
@@ -42,8 +43,10 @@ import ProfileSetupScreen from './src/screens/ProfileSetupScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import AppretoneroRankingScreen from './src/screens/AppretoneroRankingScreen';
 import MapScreen from './src/screens/MapScreen';
+import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 import { getCurrentUser, logout } from './src/data/auth';
 import { storageGet, storageRemove } from './src/data/storage';
+import { supabase } from './src/data/supabase';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -79,12 +82,47 @@ function TabIcon({ emoji, focused }) {
 }
 
 export default function App() {
-  const [authState, setAuthState] = useState('loading'); // 'loading' | 'login' | 'setup' | 'app'
+  const [authState, setAuthState] = useState('loading'); // 'loading' | 'login' | 'setup' | 'app' | 'reset-password'
   const [user, setUser] = useState(null);
 
   useEffect(() => {
     checkAuth();
+
+    // Handle deep link when app is already open
+    const sub = Linking.addEventListener('url', ({ url }) => {
+      handleDeepLink(url);
+    });
+
+    // Handle deep link that opened the app cold
+    Linking.getInitialURL().then((url) => {
+      if (url) handleDeepLink(url);
+    });
+
+    return () => sub.remove();
   }, []);
+
+  async function handleDeepLink(url) {
+    if (!url) return;
+    // Match appreton://auth/reset-password
+    if (!url.includes('reset-password')) return;
+
+    // Supabase sends tokens in the hash fragment: #access_token=...&type=recovery
+    const hash = url.split('#')[1] || '';
+    const params = new URLSearchParams(hash);
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+    const type = params.get('type');
+
+    if (accessToken && type === 'recovery') {
+      try {
+        await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken || '',
+        });
+        setAuthState('reset-password');
+      } catch {}
+    }
+  }
 
   async function checkAuth() {
     try {
@@ -154,6 +192,14 @@ export default function App() {
 
   if (authState === 'login') {
     return <ErrorBoundary><LoginScreen onLogin={handleLogin} /></ErrorBoundary>;
+  }
+
+  if (authState === 'reset-password') {
+    return (
+      <ErrorBoundary>
+        <ResetPasswordScreen onDone={() => setAuthState('login')} />
+      </ErrorBoundary>
+    );
   }
 
   if (authState === 'setup') {
