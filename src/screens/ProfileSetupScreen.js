@@ -13,6 +13,7 @@ import {
   Image,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { getCurrentUser, saveUserProfile } from '../data/auth';
 import { supabase } from '../data/supabase';
 import PoopAvatar, { getAllPoopAvatars } from '../components/PoopAvatar';
@@ -39,6 +40,15 @@ export default function ProfileSetupScreen({ onComplete }) {
     }
   }
 
+  // Copia la imagen a la carpeta permanente de la app para que no desaparezca
+  async function savePermanentAvatar(tempUri) {
+    const user = await getCurrentUser();
+    const fileName = `avatar_${user?.id || Date.now()}.jpg`;
+    const destPath = FileSystem.documentDirectory + fileName;
+    await FileSystem.copyAsync({ from: tempUri, to: destPath });
+    return destPath;
+  }
+
   async function pickImage() {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -53,7 +63,8 @@ export default function ProfileSetupScreen({ onComplete }) {
         quality: 0.7,
       });
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        setCustomAvatarUri(result.assets[0].uri);
+        const permanentUri = await savePermanentAvatar(result.assets[0].uri);
+        setCustomAvatarUri(permanentUri);
         setAvatarType('custom');
       }
     } catch {
@@ -74,7 +85,8 @@ export default function ProfileSetupScreen({ onComplete }) {
         quality: 0.7,
       });
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        setCustomAvatarUri(result.assets[0].uri);
+        const permanentUri = await savePermanentAvatar(result.assets[0].uri);
+        setCustomAvatarUri(permanentUri);
         setAvatarType('custom');
       }
     } catch {
