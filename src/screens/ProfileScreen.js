@@ -11,7 +11,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { getCurrentUser, getLevelInfo, getAllLevels, logout } from '../data/auth';
 import PoopAvatar from '../components/PoopAvatar';
-import { CURRENT_VERSION, CHANGELOG } from '../version';
+import { CURRENT_VERSION } from '../version';
 
 export default function ProfileScreen({ onLogout, onEditProfile }) {
   const [user, setUser] = useState(null);
@@ -195,29 +195,6 @@ export default function ProfileScreen({ onLogout, onEditProfile }) {
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
           <Text style={styles.logoutBtnText}>Cerrar sesion</Text>
         </TouchableOpacity>
-
-        {/* Version y changelog */}
-        <View style={styles.versionSection}>
-          <Text style={styles.versionTitle}>Historial de versiones</Text>
-          {CHANGELOG.map((entry) => (
-            <View key={entry.version} style={styles.versionCard}>
-              <View style={styles.versionHeader}>
-                <View style={styles.versionBadge}>
-                  <Text style={styles.versionBadgeText}>v{entry.version}</Text>
-                </View>
-                {entry.version === CURRENT_VERSION && (
-                  <View style={styles.currentBadge}>
-                    <Text style={styles.currentBadgeText}>Actual</Text>
-                  </View>
-                )}
-                <Text style={styles.versionDate}>{entry.date}</Text>
-              </View>
-              {entry.changes.map((change, i) => (
-                <Text key={i} style={styles.changeItem}>- {change}</Text>
-              ))}
-            </View>
-          ))}
-        </View>
 
         <Text style={styles.versionFooter}>Appreton v{CURRENT_VERSION}</Text>
       </ScrollView>
