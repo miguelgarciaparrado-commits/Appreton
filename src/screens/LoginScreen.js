@@ -223,7 +223,7 @@ export default function LoginScreen({ onLogin }) {
                   style={styles.forgotBtn}
                   onPress={() => { setMode('forgot'); setError(''); setForgotSent(false); }}
                 >
-                  <Text style={styles.forgotText}>Olvide mi contrasena</Text>
+                  <Text style={styles.forgotText}>Olvide mi password</Text>
                 </TouchableOpacity>
               )}
 
@@ -252,7 +252,7 @@ export default function LoginScreen({ onLogin }) {
                 <Text style={styles.backText}>← Volver</Text>
               </TouchableOpacity>
 
-              <Text style={styles.cardTitle}>Recuperar contrasena</Text>
+              <Text style={styles.cardTitle}>Recuperar password</Text>
 
               {forgotSent ? (
                 <View style={styles.sentBox}>

@@ -279,7 +279,10 @@ export async function loginWithEmail(email, password) {
 
 // Forgot password — sends reset email via Supabase
 export async function forgotPassword(email) {
-  const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase());
+  const { error } = await supabase.auth.resetPasswordForEmail(
+    email.trim().toLowerCase(),
+    { redirectTo: 'appreton://auth/reset-password' }
+  );
   if (error) throw new Error(error.message);
 }
 
