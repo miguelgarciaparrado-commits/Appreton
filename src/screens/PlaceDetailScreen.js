@@ -53,6 +53,11 @@ export default function PlaceDetailScreen({ route, navigation }) {
   }
 
   const totalReviews = reviews.length;
+  // Calcular rating real desde las reviews cargadas (no el dato estatico del lugar)
+  const avgRating = totalReviews
+    ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / totalReviews) * 10) / 10
+    : 0;
+
   const paperPercent = totalReviews
     ? Math.round((reviews.filter((r) => r.hasPaper).length / totalReviews) * 100)
     : 0;
@@ -75,8 +80,8 @@ export default function PlaceDetailScreen({ route, navigation }) {
         <Text style={styles.address}>{place.address}</Text>
         {totalReviews > 0 ? (
           <View style={styles.ratingRow}>
-            <PoopRating rating={place.avgRating} size={28} readonly />
-            <Text style={styles.ratingText}>{place.avgRating.toFixed(1)}/5</Text>
+            <PoopRating rating={avgRating} size={28} readonly />
+            <Text style={styles.ratingText}>{avgRating.toFixed(1)}/5</Text>
           </View>
         ) : (
           <Text style={styles.noRatingText}>Sin opiniones aún</Text>
