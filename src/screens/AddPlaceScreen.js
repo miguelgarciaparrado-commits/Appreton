@@ -16,11 +16,10 @@ import * as Location from 'expo-location';
 import { addPlace } from '../data/store';
 
 const PLACE_TYPES = [
-  { key: 'bar', label: '🍺 Bar / Cafetería', color: '#E67E22' },
+  { key: 'bar', label: '🍺 Bar / Cafeteria', color: '#E67E22' },
   { key: 'restaurante', label: '🍽️ Restaurante', color: '#E74C3C' },
   { key: 'gasolinera', label: '⛽ Gasolinera', color: '#3498DB' },
   { key: 'centro_comercial', label: '🛒 Centro Comercial', color: '#9B59B6' },
-  { key: 'otro', label: '🏢 Otro', color: '#95A5A6' },
 ];
 
 const TYPE_KEYWORDS = {

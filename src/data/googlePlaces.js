@@ -25,12 +25,12 @@ const TYPES_OTHER = [
 ];
 
 function mapGoogleTypeToAppType(primaryType) {
-  if (!primaryType) return 'otro';
+  if (!primaryType) return null;
   if (['restaurant', 'meal_delivery', 'meal_takeaway', 'cafeteria', 'food_court', 'fast_food_restaurant', 'pizza_restaurant', 'hamburger_restaurant', 'seafood_restaurant', 'steak_house', 'sushi_restaurant', 'indian_restaurant', 'chinese_restaurant', 'mexican_restaurant', 'american_restaurant', 'italian_restaurant', 'japanese_restaurant'].includes(primaryType)) return 'restaurante';
   if (['bar', 'night_club', 'cafe', 'coffee_shop', 'bakery', 'pub'].includes(primaryType)) return 'bar';
   if (['gas_station', 'service_station'].includes(primaryType)) return 'gasolinera';
   if (['shopping_mall', 'department_store', 'supermarket', 'grocery_store', 'convenience_store', 'clothing_store', 'furniture_store', 'hardware_store', 'home_goods_store'].includes(primaryType)) return 'centro_comercial';
-  return 'otro';
+  return null; // tipo desconocido: se descarta
 }
 
 async function searchNearby(latitude, longitude, radiusMeters, includedTypes) {
@@ -85,11 +85,12 @@ export async function fetchNearbyPlaces(latitude, longitude, radiusMeters = 600)
     const places = [];
 
     for (const p of [...foodResults, ...otherResults]) {
-      // Solo establecimientos operativos (excluye barrios, áreas, cerrados)
       if (p.businessStatus !== 'OPERATIONAL') continue;
       if (seen.has(p.id)) continue;
+      const normalized = normalizePlace(p, latitude, longitude);
+      if (!normalized.type) continue; // descarta tipos sin categoria conocida
       seen.add(p.id);
-      places.push(normalizePlace(p, latitude, longitude));
+      places.push(normalized);
     }
 
     return places;

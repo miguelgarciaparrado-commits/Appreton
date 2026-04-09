@@ -18,7 +18,6 @@ const TYPE_LABELS = {
   restaurante: '🍽️ Restaurante',
   gasolinera: '⛽ Gasolinera',
   centro_comercial: '🛒 Centro Comercial',
-  otro: '🏢 Otro',
 };
 
 export default function PlaceDetailScreen({ route, navigation }) {

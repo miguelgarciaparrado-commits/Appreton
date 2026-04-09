@@ -22,7 +22,6 @@ const FILTERS = [
   { key: 'restaurante', label: '🍽️ Restaurantes' },
   { key: 'gasolinera', label: '⛽ Gasolineras' },
   { key: 'centro_comercial', label: '🛒 Centros' },
-  { key: 'otro', label: '🏢 Otros' },
 ];
 
 const SORT_OPTIONS = [

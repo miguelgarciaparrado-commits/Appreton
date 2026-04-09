@@ -33,7 +33,6 @@ const TYPE_EMOJI = {
   restaurante: '🍽️',
   gasolinera: '⛽',
   centro_comercial: '🛒',
-  otro: '📍',
 };
 
 export default function NearbyScreen({ navigation }) {
