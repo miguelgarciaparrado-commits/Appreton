@@ -96,10 +96,17 @@ export async function getReviews(placeId) {
   try {
     let query = supabase.from('reviews').select('*');
     if (placeId) query = query.eq('place_id', placeId);
-    const { data, error } = await query.order('created_at', { ascending: false });
+    // Ordenar por date (columna que insertamos nosotros, created_at puede no existir)
+    const { data, error } = await query.order('date', { ascending: false });
     if (!error && data) {
       const reviews = data.map(rowToReview);
-      await storageSet(REVIEWS_KEY, JSON.stringify(reviews));
+      // Merge con caché existente para no perder reviews de otros lugares
+      try {
+        const cached = await storageGet(REVIEWS_KEY);
+        const all = cached ? JSON.parse(cached) : [];
+        const others = placeId ? all.filter((r) => r.placeId !== placeId) : [];
+        await storageSet(REVIEWS_KEY, JSON.stringify([...others, ...reviews]));
+      } catch {}
       return reviews;
     }
   } catch {}
