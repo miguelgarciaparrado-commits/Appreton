@@ -16,11 +16,13 @@ import { useFocusEffect } from '@react-navigation/native';
 import { getCurrentUser, getLevelInfo, getAllLevels, logout, saveUserProfile } from '../data/auth';
 import PoopAvatar, { getAllPoopAvatars } from '../components/PoopAvatar';
 import { CURRENT_VERSION } from '../version';
+import GameScreen from './GameScreen';
 
 export default function ProfileScreen({ onLogout, onEditProfile }) {
   const [user, setUser] = useState(null);
   const [levelInfo, setLevelInfo] = useState(null);
   const [avatarModalVisible, setAvatarModalVisible] = useState(false);
+  const [gameVisible, setGameVisible] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -235,6 +237,13 @@ export default function ProfileScreen({ onLogout, onEditProfile }) {
         </View>
 
         {/* Action buttons */}
+        {/* Juego */}
+        <TouchableOpacity style={styles.gameBtn} onPress={() => setGameVisible(true)}>
+          <Text style={styles.gameBtnIcon}>\uD83D\uDCA9</Text>
+          <Text style={styles.gameBtnText}>Toca la Caca</Text>
+          <Text style={styles.gameBtnSub}>Mini juego para el trono</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.editBtn} onPress={onEditProfile}>
           <Text style={styles.editBtnText}>Editar perfil</Text>
         </TouchableOpacity>
@@ -245,6 +254,8 @@ export default function ProfileScreen({ onLogout, onEditProfile }) {
 
         <Text style={styles.versionFooter}>Appreton v{CURRENT_VERSION}</Text>
       </ScrollView>
+
+      <GameScreen visible={gameVisible} onClose={() => setGameVisible(false)} />
 
       {/* Modal para cambiar avatar */}
       <Modal visible={avatarModalVisible} animationType="slide" transparent onRequestClose={() => setAvatarModalVisible(false)}>
@@ -554,6 +565,20 @@ const styles = StyleSheet.create({
   roadmapCheck: {
     fontSize: 18,
   },
+  gameBtn: {
+    marginHorizontal: 20,
+    marginTop: 24,
+    backgroundColor: '#2C3E50',
+    padding: 18,
+    borderRadius: 20,
+    alignItems: 'center',
+    elevation: 3,
+    flexDirection: 'row',
+    gap: 12,
+  },
+  gameBtnIcon: { fontSize: 32 },
+  gameBtnText: { fontSize: 17, fontWeight: 'bold', color: '#FFF', flex: 1 },
+  gameBtnSub: { fontSize: 12, color: '#AAA' },
   editBtn: {
     marginHorizontal: 20,
     marginTop: 24,
