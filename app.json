@@ -14,7 +14,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.appreton.app"
+      "bundleIdentifier": "com.appreton.app",
+      "config": {
+        "googleMapsApiKey": "AIzaSyAGsJx_0fUzJmVDA539E5zo_mDfLBvKRMA"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -54,6 +57,9 @@
             "targetSdkVersion": 34,
             "buildToolsVersion": "35.0.0",
             "minSdkVersion": 24
+          },
+          "ios": {
+            "deploymentTarget": "15.1"
           }
         }
       ],
