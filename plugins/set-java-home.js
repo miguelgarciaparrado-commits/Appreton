@@ -13,7 +13,12 @@ module.exports = (config) =>
     remove('org.gradle.java.home');
 
     // Limit JVM memory to avoid Gradle Worker Daemon crashes
-    set('org.gradle.jvmargs', '-Xmx1536m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8');
+    set('org.gradle.jvmargs', '-Xmx768m -XX:MaxMetaspaceSize=256m -Dfile.encoding=UTF-8');
+
+    // Limit parallel workers to 1 to reduce memory pressure
+    set('org.gradle.workers.max', '1');
+    set('org.gradle.parallel', 'false');
+    set('org.gradle.daemon', 'false');
 
     // Ensure compileSdkVersion is available as a Gradle property (expo-modules need it)
     set('compileSdkVersion', '35');
