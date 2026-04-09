@@ -27,7 +27,12 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "CAMERA"
-      ]
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyAGsJx_0fUzJmVDA539E5zo_mDfLBvKRMA"
+        }
+      }
     },
     "extra": {
       "eas": {

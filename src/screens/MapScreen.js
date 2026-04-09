@@ -1,32 +1,25 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
-  FlatList,
   StyleSheet,
-  TouchableOpacity,
   SafeAreaView,
   StatusBar,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
+import MapView, { Marker, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { getPlaces } from '../data/store';
+import { fetchNearbyPlaces } from '../data/googlePlaces';
 
-const MAX_DISTANCE_KM = 0.6;
-
-function getDistanceKm(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
+const TYPE_COLOR = {
+  bar: '#E67E22',
+  restaurante: '#E74C3C',
+  gasolinera: '#3498DB',
+  centro_comercial: '#9B59B6',
+};
 
 const TYPE_EMOJI = {
   bar: '🍺',
@@ -35,11 +28,12 @@ const TYPE_EMOJI = {
   centro_comercial: '🛒',
 };
 
-export default function NearbyScreen({ navigation }) {
-  const [places, setPlaces] = useState([]);
+export default function MapScreen({ navigation }) {
   const [userLocation, setUserLocation] = useState(null);
+  const [places, setPlaces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [locationError, setLocationError] = useState(null);
+  const mapRef = useRef(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -49,166 +43,175 @@ export default function NearbyScreen({ navigation }) {
 
   async function init() {
     setLoading(true);
-    await Promise.all([getUserLocation(), loadPlaces()]);
-    setLoading(false);
-  }
-
-  async function getUserLocation() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        setLocationError('Permiso de ubicacion denegado');
+        setLocationError('Activa la ubicacion para ver el mapa');
+        setLoading(false);
         return;
       }
       const loc = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
-      setUserLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+      const coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+      setUserLocation(coords);
       setLocationError(null);
+
+      // Carga establecimientos: app DB + Google Places
+      const [appPlaces, googlePlaces] = await Promise.all([
+        getPlaces(),
+        fetchNearbyPlaces(coords.latitude, coords.longitude, 600),
+      ]);
+      const appIds = new Set(appPlaces.map((p) => p.id));
+      const merged = [...appPlaces, ...googlePlaces.filter((gp) => !appIds.has(gp.id))];
+      setPlaces(merged.filter((p) => p.latitude && p.longitude));
     } catch {
       setLocationError('No se pudo obtener la ubicacion');
+    } finally {
+      setLoading(false);
     }
   }
 
-  async function loadPlaces() {
-    const data = await getPlaces();
-    setPlaces(data);
+  function centerOnUser() {
+    if (userLocation && mapRef.current) {
+      mapRef.current.animateToRegion({
+        latitude: userLocation.latitude,
+        longitude: userLocation.longitude,
+        latitudeDelta: 0.008,
+        longitudeDelta: 0.008,
+      }, 600);
+    }
   }
-
-  const nearby = places
-    .filter((p) => p.latitude && p.longitude)
-    .map((p) => {
-      if (!userLocation) return { ...p, distance: null };
-      const dist = getDistanceKm(userLocation.latitude, userLocation.longitude, p.latitude, p.longitude);
-      return { ...p, distance: dist };
-    })
-    .filter((p) => !userLocation || (p.distance !== null && p.distance <= MAX_DISTANCE_KM))
-    .sort((a, b) => (a.distance ?? 999) - (b.distance ?? 999));
 
   if (loading) {
     return (
       <SafeAreaView style={styles.centered}>
         <ActivityIndicator size="large" color="#8B6914" />
-        <Text style={styles.loadingText}>Buscando WC cercanos...</Text>
+        <Text style={styles.loadingText}>Cargando mapa...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (locationError) {
+    return (
+      <SafeAreaView style={styles.centered}>
+        <Text style={styles.errorIcon}>📍</Text>
+        <Text style={styles.errorText}>{locationError}</Text>
+        <TouchableOpacity style={styles.retryBtn} onPress={init}>
+          <Text style={styles.retryText}>Reintentar</Text>
+        </TouchableOpacity>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <View style={styles.container}>
       <StatusBar backgroundColor="#8B6914" barStyle="light-content" />
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>📍 Cerca de ti</Text>
-        <Text style={styles.headerSub}>
-          {locationError
-            ? locationError
-            : `${nearby.length} WC en menos de 600 m`}
-        </Text>
-      </View>
-
-      <FlatList
-        data={nearby}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>🚽</Text>
-            <Text style={styles.emptyText}>No hay WC valorados a menos de 600 m</Text>
-            <Text style={styles.emptySubtext}>Prueba a añadir uno con el botón +</Text>
-          </View>
-        }
-        renderItem={({ item, index }) => (
-          <TouchableOpacity
-            style={styles.card}
-            onPress={() => navigation.navigate('Explorar', { screen: 'PlaceDetail', params: { place: item } })}
-            activeOpacity={0.8}
+      <MapView
+        ref={mapRef}
+        style={styles.map}
+        provider={PROVIDER_GOOGLE}
+        initialRegion={{
+          latitude: userLocation.latitude,
+          longitude: userLocation.longitude,
+          latitudeDelta: 0.008,
+          longitudeDelta: 0.008,
+        }}
+        showsUserLocation
+        showsMyLocationButton={false}
+      >
+        {places.map((place) => (
+          <Marker
+            key={place.id}
+            coordinate={{ latitude: place.latitude, longitude: place.longitude }}
+            pinColor={TYPE_COLOR[place.type] || '#8B6914'}
           >
-            <View style={styles.rankBadge}>
-              <Text style={styles.rankText}>{index + 1}</Text>
-            </View>
-            <View style={styles.cardBody}>
-              <View style={styles.cardTop}>
-                <Text style={styles.cardEmoji}>{TYPE_EMOJI[item.type] || '📍'}</Text>
-                <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
+            <Callout
+              onPress={() => navigation.navigate('Explorar', {
+                screen: 'PlaceDetail',
+                params: { place },
+              })}
+              style={styles.callout}
+            >
+              <View style={styles.calloutContent}>
+                <Text style={styles.calloutEmoji}>{TYPE_EMOJI[place.type] || '🚽'}</Text>
+                <View style={styles.calloutInfo}>
+                  <Text style={styles.calloutName} numberOfLines={2}>{place.name}</Text>
+                  <Text style={styles.calloutRating}>
+                    {place.reviewCount > 0
+                      ? `${'💩'.repeat(Math.round(place.avgRating))} (${place.reviewCount})`
+                      : 'Sin valorar'}
+                  </Text>
+                </View>
               </View>
-              <Text style={styles.cardAddress} numberOfLines={1}>{item.address}</Text>
-              <View style={styles.cardBottom}>
-                <Text style={styles.cardRating}>
-                  {'💩'.repeat(Math.round(item.avgRating || 0)) || 'Sin valorar'}
-                </Text>
-                <Text style={styles.cardReviews}>
-                  {item.reviewCount || 0} opinion{(item.reviewCount || 0) !== 1 ? 'es' : ''}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.distanceBadge}>
-              <Text style={styles.distanceText}>
-                {item.distance !== null ? `${Math.round(item.distance * 1000)} m` : '—'}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        )}
-      />
-    </SafeAreaView>
+              <Text style={styles.calloutTap}>Toca para ver detalle</Text>
+            </Callout>
+          </Marker>
+        ))}
+      </MapView>
+
+      {/* Boton centrar */}
+      <TouchableOpacity style={styles.centerBtn} onPress={centerOnUser}>
+        <Text style={styles.centerBtnText}>📍</Text>
+      </TouchableOpacity>
+
+      {/* Contador */}
+      <View style={styles.badge}>
+        <Text style={styles.badgeText}>{places.length} WC cercanos</Text>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F5F0E1' },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F5F0E1' },
-  loadingText: { marginTop: 12, fontSize: 15, color: '#666' },
-  header: {
-    backgroundColor: '#8B6914',
-    paddingTop: 16,
-    paddingBottom: 14,
-    paddingHorizontal: 20,
-  },
-  headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#FFF' },
-  headerSub: { fontSize: 13, color: '#F5DEB3', marginTop: 2 },
-  list: { padding: 12, paddingBottom: 80 },
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF',
-    borderRadius: 16,
-    marginBottom: 10,
-    padding: 14,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-  },
-  rankBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#8B6914',
+  container: { flex: 1 },
+  map: { flex: 1 },
+  centered: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    backgroundColor: '#F5F0E1',
+    padding: 32,
   },
-  rankText: { color: '#FFF', fontWeight: 'bold', fontSize: 14 },
-  cardBody: { flex: 1 },
-  cardTop: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
-  cardEmoji: { fontSize: 16 },
-  cardName: { fontSize: 15, fontWeight: '700', color: '#2C3E50', flex: 1 },
-  cardAddress: { fontSize: 12, color: '#999', marginBottom: 4 },
-  cardBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  cardRating: { fontSize: 14 },
-  cardReviews: { fontSize: 11, color: '#AAA' },
-  distanceBadge: {
-    backgroundColor: '#FFF9E6',
-    borderRadius: 10,
-    paddingHorizontal: 10,
+  loadingText: { marginTop: 12, fontSize: 15, color: '#666' },
+  errorIcon: { fontSize: 48 },
+  errorText: { fontSize: 16, color: '#666', marginTop: 12, textAlign: 'center' },
+  retryBtn: {
+    marginTop: 20,
+    backgroundColor: '#8B6914',
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+    borderRadius: 20,
+  },
+  retryText: { color: '#FFF', fontWeight: '700', fontSize: 15 },
+  callout: { width: 220 },
+  calloutContent: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  calloutEmoji: { fontSize: 24 },
+  calloutInfo: { flex: 1 },
+  calloutName: { fontSize: 14, fontWeight: '700', color: '#2C3E50' },
+  calloutRating: { fontSize: 12, color: '#8B6914', marginTop: 2 },
+  calloutTap: { fontSize: 11, color: '#999', marginTop: 6, textAlign: 'center' },
+  centerBtn: {
+    position: 'absolute',
+    bottom: 90,
+    right: 16,
+    backgroundColor: '#FFF',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+  },
+  centerBtnText: { fontSize: 22 },
+  badge: {
+    position: 'absolute',
+    top: 16,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(139,105,20,0.9)',
+    paddingHorizontal: 16,
     paddingVertical: 6,
-    marginLeft: 10,
-    borderWidth: 1,
-    borderColor: '#E8D9A0',
+    borderRadius: 20,
   },
-  distanceText: { fontSize: 13, fontWeight: '700', color: '#8B6914' },
-  empty: { alignItems: 'center', paddingTop: 60 },
-  emptyIcon: { fontSize: 60 },
-  emptyText: { fontSize: 17, color: '#666', marginTop: 16 },
-  emptySubtext: { fontSize: 13, color: '#999', marginTop: 6 },
+  badgeText: { color: '#FFF', fontWeight: '700', fontSize: 13 },
 });
