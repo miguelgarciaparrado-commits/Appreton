@@ -7,7 +7,6 @@ const TYPE_LABELS = {
   restaurante: '🍽️ Restaurante',
   gasolinera: '⛽ Gasolinera',
   centro_comercial: '🛒 Centro Comercial',
-  otro: '🏢 Otro',
 };
 
 const TYPE_COLORS = {
@@ -15,7 +14,6 @@ const TYPE_COLORS = {
   restaurante: '#E74C3C',
   gasolinera: '#3498DB',
   centro_comercial: '#9B59B6',
-  otro: '#95A5A6',
 };
 
 export default function PlaceCard({ place, onPress }) {

@@ -13,11 +13,14 @@ import {
   Image,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { getCurrentUser, saveUserProfile } from '../data/auth';
+import { supabase } from '../data/supabase';
 import PoopAvatar, { getAllPoopAvatars } from '../components/PoopAvatar';
 
 export default function ProfileSetupScreen({ onComplete }) {
   const [displayName, setDisplayName] = useState('');
+  const [gender, setGender] = useState(null); // 'hombre' | 'mujer'
   const [avatarType, setAvatarType] = useState('poop_1');
   const [customAvatarUri, setCustomAvatarUri] = useState(null);
 
@@ -31,9 +34,19 @@ export default function ProfileSetupScreen({ onComplete }) {
     const user = await getCurrentUser();
     if (user) {
       if (user.displayName) setDisplayName(user.displayName);
+      if (user.gender) setGender(user.gender);
       if (user.avatarType) setAvatarType(user.avatarType);
       if (user.customAvatarUri) setCustomAvatarUri(user.customAvatarUri);
     }
+  }
+
+  // Copia la imagen a la carpeta permanente de la app para que no desaparezca
+  async function savePermanentAvatar(tempUri) {
+    const user = await getCurrentUser();
+    const fileName = `avatar_${user?.id || Date.now()}.jpg`;
+    const destPath = FileSystem.documentDirectory + fileName;
+    await FileSystem.copyAsync({ from: tempUri, to: destPath });
+    return destPath;
   }
 
   async function pickImage() {
@@ -50,7 +63,8 @@ export default function ProfileSetupScreen({ onComplete }) {
         quality: 0.7,
       });
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        setCustomAvatarUri(result.assets[0].uri);
+        const permanentUri = await savePermanentAvatar(result.assets[0].uri);
+        setCustomAvatarUri(permanentUri);
         setAvatarType('custom');
       }
     } catch {
@@ -71,7 +85,8 @@ export default function ProfileSetupScreen({ onComplete }) {
         quality: 0.7,
       });
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        setCustomAvatarUri(result.assets[0].uri);
+        const permanentUri = await savePermanentAvatar(result.assets[0].uri);
+        setCustomAvatarUri(permanentUri);
         setAvatarType('custom');
       }
     } catch {
@@ -80,17 +95,42 @@ export default function ProfileSetupScreen({ onComplete }) {
   }
 
   async function handleSave() {
-    if (!displayName.trim()) {
+    const trimmedName = displayName.trim();
+
+    if (!trimmedName) {
       Alert.alert('Oops', 'Elige un nombre de usuario');
       return;
     }
-    if (displayName.trim().length < 3) {
+    if (trimmedName.length < 3) {
       Alert.alert('Oops', 'El nombre debe tener al menos 3 caracteres');
       return;
     }
+    if (!gender) {
+      Alert.alert('Oops', 'Selecciona tu género');
+      return;
+    }
+
+    // Comprobar si el nombre ya está en uso por otro usuario
+    try {
+      const currentUser = await getCurrentUser();
+      const { data } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .ilike('display_name', trimmedName)
+        .neq('id', currentUser?.id || '')
+        .limit(1);
+
+      if (data && data.length > 0) {
+        Alert.alert('Nombre no disponible', 'Ese nombre de usuario ya está en uso. Elige otro.');
+        return;
+      }
+    } catch {
+      // Si falla la comprobación, dejamos continuar
+    }
 
     await saveUserProfile({
-      displayName: displayName.trim(),
+      displayName: trimmedName,
+      gender,
       avatarType,
       customAvatarUri: avatarType === 'custom' ? customAvatarUri : null,
       profileCompleted: true,
@@ -134,6 +174,31 @@ export default function ProfileSetupScreen({ onComplete }) {
               autoCapitalize="none"
             />
             <Text style={styles.hint}>{displayName.length}/20 caracteres</Text>
+          </View>
+
+          {/* Gender */}
+          <View style={styles.section}>
+            <Text style={styles.label}>Genero</Text>
+            <View style={styles.genderRow}>
+              <TouchableOpacity
+                style={[styles.genderBtn, gender === 'hombre' && styles.genderBtnSelected]}
+                onPress={() => setGender('hombre')}
+              >
+                <Text style={styles.genderEmoji}>👨</Text>
+                <Text style={[styles.genderText, gender === 'hombre' && styles.genderTextSelected]}>
+                  Hombre
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.genderBtn, gender === 'mujer' && styles.genderBtnSelected]}
+                onPress={() => setGender('mujer')}
+              >
+                <Text style={styles.genderEmoji}>👩</Text>
+                <Text style={[styles.genderText, gender === 'mujer' && styles.genderTextSelected]}>
+                  Mujer
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Custom photo options */}
@@ -237,6 +302,35 @@ const styles = StyleSheet.create({
     color: '#999',
     marginTop: 4,
     textAlign: 'right',
+  },
+  genderRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  genderBtn: {
+    flex: 1,
+    backgroundColor: '#FFF',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#EEE',
+  },
+  genderBtnSelected: {
+    borderColor: '#8B6914',
+    backgroundColor: '#FFF9E6',
+  },
+  genderEmoji: {
+    fontSize: 32,
+    marginBottom: 6,
+  },
+  genderText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#888',
+  },
+  genderTextSelected: {
+    color: '#8B6914',
   },
   photoButtons: {
     flexDirection: 'row',

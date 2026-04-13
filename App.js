@@ -2,7 +2,36 @@ import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Text, ActivityIndicator, View } from 'react-native';
+import { Text, ActivityIndicator, View, TouchableOpacity, StyleSheet } from 'react-native';
+import * as Linking from 'expo-linking';
+
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false }; }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={eb.container}>
+          <Text style={eb.emoji}>💩</Text>
+          <Text style={eb.title}>Algo salio mal</Text>
+          <Text style={eb.sub}>Reinicia la aplicacion para continuar</Text>
+          <TouchableOpacity style={eb.btn} onPress={() => this.setState({ hasError: false })}>
+            <Text style={eb.btnText}>Reintentar</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+const eb = StyleSheet.create({
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F5F0E1', padding: 32 },
+  emoji: { fontSize: 64 },
+  title: { fontSize: 22, fontWeight: 'bold', color: '#333', marginTop: 16 },
+  sub: { fontSize: 14, color: '#888', marginTop: 8, textAlign: 'center' },
+  btn: { marginTop: 24, backgroundColor: '#8B6914', paddingHorizontal: 32, paddingVertical: 14, borderRadius: 12 },
+  btnText: { color: '#FFF', fontWeight: '700', fontSize: 16 },
+});
 
 import HomeScreen from './src/screens/HomeScreen';
 import PlaceDetailScreen from './src/screens/PlaceDetailScreen';
@@ -13,7 +42,11 @@ import LoginScreen from './src/screens/LoginScreen';
 import ProfileSetupScreen from './src/screens/ProfileSetupScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import AppretoneroRankingScreen from './src/screens/AppretoneroRankingScreen';
-import { getCurrentUser } from './src/data/auth';
+import MapScreen from './src/screens/MapScreen';
+import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
+import { getCurrentUser, logout } from './src/data/auth';
+import { storageGet, storageRemove } from './src/data/storage';
+import { supabase } from './src/data/supabase';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -49,15 +82,53 @@ function TabIcon({ emoji, focused }) {
 }
 
 export default function App() {
-  const [authState, setAuthState] = useState('loading'); // 'loading' | 'login' | 'setup' | 'app'
+  const [authState, setAuthState] = useState('loading'); // 'loading' | 'login' | 'setup' | 'app' | 'reset-password'
   const [user, setUser] = useState(null);
 
   useEffect(() => {
     checkAuth();
+
+    // Handle deep link when app is already open
+    const sub = Linking.addEventListener('url', ({ url }) => {
+      handleDeepLink(url);
+    });
+
+    // Handle deep link that opened the app cold
+    Linking.getInitialURL().then((url) => {
+      if (url) handleDeepLink(url);
+    });
+
+    return () => sub.remove();
   }, []);
+
+  async function handleDeepLink(url) {
+    if (!url) return;
+    // Match appreton://auth/reset-password
+    if (!url.includes('reset-password')) return;
+
+    // Supabase sends tokens in the hash fragment: #access_token=...&type=recovery
+    const hash = url.split('#')[1] || '';
+    const params = new URLSearchParams(hash);
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+    const type = params.get('type');
+
+    if (accessToken && type === 'recovery') {
+      try {
+        await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken || '',
+        });
+        setAuthState('reset-password');
+      } catch {}
+    }
+  }
 
   async function checkAuth() {
     try {
+      // Migración: limpiar datos incompatibles de versiones antiguas
+      await migrateOldData();
+
       const currentUser = await getCurrentUser();
       if (!currentUser) {
         setAuthState('login');
@@ -73,9 +144,29 @@ export default function App() {
     }
   }
 
+  // Limpia datos del sistema de auth antiguo (IDs locales user_TIMESTAMP)
+  async function migrateOldData() {
+    try {
+      const raw = await storageGet('@appreton_auth_user');
+      if (!raw) return;
+      const user = JSON.parse(raw);
+      // IDs del sistema antiguo empezaban por 'user_' (no son UUIDs de Supabase)
+      if (user && user.id && user.id.startsWith('user_')) {
+        await storageRemove('@appreton_auth_user');
+        await storageRemove('@appreton_credentials');
+        await storageRemove('@appreton_all_users');
+        await storageRemove('@appreton_users_data');
+      }
+    } catch {}
+  }
+
   function handleLogin(loggedInUser) {
     setUser(loggedInUser);
-    setAuthState('setup');
+    if (loggedInUser.profileCompleted) {
+      setAuthState('app');
+    } else {
+      setAuthState('setup');
+    }
   }
 
   function handleProfileComplete() {
@@ -100,14 +191,23 @@ export default function App() {
   }
 
   if (authState === 'login') {
-    return <LoginScreen onLogin={handleLogin} />;
+    return <ErrorBoundary><LoginScreen onLogin={handleLogin} /></ErrorBoundary>;
+  }
+
+  if (authState === 'reset-password') {
+    return (
+      <ErrorBoundary>
+        <ResetPasswordScreen onDone={() => setAuthState('login')} />
+      </ErrorBoundary>
+    );
   }
 
   if (authState === 'setup') {
-    return <ProfileSetupScreen onComplete={handleProfileComplete} />;
+    return <ErrorBoundary><ProfileSetupScreen onComplete={handleProfileComplete} /></ErrorBoundary>;
   }
 
   return (
+    <ErrorBoundary>
     <NavigationContainer>
       <Tab.Navigator
         screenOptions={{
@@ -135,19 +235,27 @@ export default function App() {
           }}
         />
         <Tab.Screen
-          name="Anadir"
+          name="Mapa"
+          component={MapScreen}
+          options={{
+            headerShown: false,
+            tabBarIcon: ({ focused }) => <TabIcon emoji={'\uD83D\uDDFA\uFE0F'} focused={focused} />,
+          }}
+        />
+        <Tab.Screen
+          name="Sugerir"
           component={AddPlaceScreen}
           options={{
-            title: 'Anadir sitio',
+            title: 'Sugerir sitio',
             tabBarIcon: ({ focused }) => <TabIcon emoji={'\u2795'} focused={focused} />,
           }}
         />
         <Tab.Screen
-          name="Banos"
+          name="Top WC"
           component={RankingScreen}
           options={{
             headerShown: false,
-            tabBarLabel: 'Banos',
+            tabBarLabel: 'Top WC',
             tabBarIcon: ({ focused }) => <TabIcon emoji={'\uD83C\uDFC6'} focused={focused} />,
           }}
         />
@@ -175,5 +283,6 @@ export default function App() {
         </Tab.Screen>
       </Tab.Navigator>
     </NavigationContainer>
+    </ErrorBoundary>
   );
 }
