@@ -7,14 +7,20 @@ import {
   SafeAreaView,
   ScrollView,
   Alert,
+  Modal,
+  FlatList,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { useFocusEffect } from '@react-navigation/native';
-import { getCurrentUser, getLevelInfo, getAllLevels, logout } from '../data/auth';
-import PoopAvatar from '../components/PoopAvatar';
+import { getCurrentUser, getLevelInfo, getAllLevels, logout, saveUserProfile } from '../data/auth';
+import PoopAvatar, { getAllPoopAvatars } from '../components/PoopAvatar';
+import { CURRENT_VERSION } from '../version';
 
 export default function ProfileScreen({ onLogout, onEditProfile }) {
   const [user, setUser] = useState(null);
   const [levelInfo, setLevelInfo] = useState(null);
+  const [avatarModalVisible, setAvatarModalVisible] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -28,6 +34,47 @@ export default function ProfileScreen({ onLogout, onEditProfile }) {
       setUser(u);
       setLevelInfo(getLevelInfo(u.xp || 0));
     }
+  }
+
+  async function savePermanentAvatar(tempUri) {
+    const fileName = `avatar_${user?.id || Date.now()}.jpg`;
+    const destPath = FileSystem.documentDirectory + fileName;
+    await FileSystem.copyAsync({ from: tempUri, to: destPath });
+    return destPath;
+  }
+
+  async function pickAvatarFromGallery() {
+    setAvatarModalVisible(false);
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') { Alert.alert('Permiso denegado', 'Necesitamos acceso a tu galeria'); return; }
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.7 });
+      if (!result.canceled && result.assets?.length > 0) {
+        const uri = await savePermanentAvatar(result.assets[0].uri);
+        const updated = await saveUserProfile({ avatarType: 'custom', customAvatarUri: uri });
+        setUser(updated);
+      }
+    } catch { Alert.alert('Error', 'No se pudo seleccionar la imagen'); }
+  }
+
+  async function pickAvatarFromCamera() {
+    setAvatarModalVisible(false);
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') { Alert.alert('Permiso denegado', 'Necesitamos acceso a la camara'); return; }
+      const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.7 });
+      if (!result.canceled && result.assets?.length > 0) {
+        const uri = await savePermanentAvatar(result.assets[0].uri);
+        const updated = await saveUserProfile({ avatarType: 'custom', customAvatarUri: uri });
+        setUser(updated);
+      }
+    } catch { Alert.alert('Error', 'No se pudo tomar la foto'); }
+  }
+
+  async function selectPoopAvatar(avatarKey) {
+    setAvatarModalVisible(false);
+    const updated = await saveUserProfile({ avatarType: avatarKey, customAvatarUri: null });
+    setUser(updated);
   }
 
   function handleLogout() {
@@ -65,11 +112,12 @@ export default function ProfileScreen({ onLogout, onEditProfile }) {
       <ScrollView contentContainerStyle={styles.container}>
         {/* Header / Avatar section */}
         <View style={styles.headerSection}>
-          <PoopAvatar
-            type={user.avatarType}
-            customUri={user.customAvatarUri}
-            size={110}
-          />
+          <TouchableOpacity onPress={() => setAvatarModalVisible(true)} style={styles.avatarWrapper}>
+            <PoopAvatar type={user.avatarType} customUri={user.customAvatarUri} size={110} />
+            <View style={styles.editAvatarBadge}>
+              <Text style={styles.editAvatarIcon}>{'\uD83D\uDCF8'}</Text>
+            </View>
+          </TouchableOpacity>
           <Text style={styles.displayName}>{user.displayName}</Text>
           <View style={styles.providerBadge}>
             <Text style={styles.providerText}>
@@ -194,7 +242,50 @@ export default function ProfileScreen({ onLogout, onEditProfile }) {
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
           <Text style={styles.logoutBtnText}>Cerrar sesion</Text>
         </TouchableOpacity>
+
+        <Text style={styles.versionFooter}>Appreton v{CURRENT_VERSION}</Text>
       </ScrollView>
+
+      {/* Modal para cambiar avatar */}
+      <Modal visible={avatarModalVisible} animationType="slide" transparent onRequestClose={() => setAvatarModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Cambiar avatar</Text>
+
+            <View style={styles.modalPhotoRow}>
+              <TouchableOpacity style={styles.modalPhotoBtn} onPress={pickAvatarFromCamera}>
+                <Text style={styles.modalPhotoIcon}>{'\uD83D\uDCF8'}</Text>
+                <Text style={styles.modalPhotoBtnText}>Camara</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalPhotoBtn} onPress={pickAvatarFromGallery}>
+                <Text style={styles.modalPhotoIcon}>{'\uD83D\uDDBC\uFE0F'}</Text>
+                <Text style={styles.modalPhotoBtnText}>Galeria</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalSubtitle}>O elige un avatar de caca</Text>
+            <FlatList
+              data={getAllPoopAvatars()}
+              keyExtractor={(item) => item.key}
+              numColumns={3}
+              style={styles.avatarGrid}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[styles.avatarOption, user.avatarType === item.key && styles.avatarOptionSelected]}
+                  onPress={() => selectPoopAvatar(item.key)}
+                >
+                  <PoopAvatar type={item.key} size={56} />
+                  <Text style={styles.avatarLabel}>{item.label}</Text>
+                </TouchableOpacity>
+              )}
+            />
+
+            <TouchableOpacity style={styles.modalCancel} onPress={() => setAvatarModalVisible(false)}>
+              <Text style={styles.modalCancelText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -222,6 +313,64 @@ const styles = StyleSheet.create({
     paddingTop: 30,
     paddingBottom: 24,
   },
+  avatarWrapper: { position: 'relative' },
+  editAvatarBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: '#FFF',
+    borderRadius: 14,
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#DDD',
+  },
+  editAvatarIcon: { fontSize: 16 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalBox: {
+    backgroundColor: '#FFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    maxHeight: '85%',
+  },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#2C3E50', textAlign: 'center', marginBottom: 16 },
+  modalSubtitle: { fontSize: 14, fontWeight: '600', color: '#666', marginTop: 16, marginBottom: 10 },
+  modalPhotoRow: { flexDirection: 'row', gap: 12 },
+  modalPhotoBtn: {
+    flex: 1,
+    backgroundColor: '#FFF9E6',
+    borderRadius: 14,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#8B6914',
+    borderStyle: 'dashed',
+  },
+  modalPhotoIcon: { fontSize: 28 },
+  modalPhotoBtnText: { fontSize: 13, color: '#8B6914', fontWeight: '600', marginTop: 6 },
+  avatarGrid: { maxHeight: 280 },
+  avatarOption: {
+    flex: 1,
+    margin: 6,
+    alignItems: 'center',
+    padding: 10,
+    borderRadius: 14,
+    backgroundColor: '#F5F0E1',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  avatarOptionSelected: { borderColor: '#8B6914', backgroundColor: '#FFF9E6' },
+  avatarLabel: { fontSize: 10, color: '#666', marginTop: 4, fontWeight: '600' },
+  modalCancel: { marginTop: 16, alignItems: 'center', padding: 14 },
+  modalCancelText: { fontSize: 16, color: '#E74C3C', fontWeight: '600' },
   displayName: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -405,6 +554,20 @@ const styles = StyleSheet.create({
   roadmapCheck: {
     fontSize: 18,
   },
+  gameBtn: {
+    marginHorizontal: 20,
+    marginTop: 24,
+    backgroundColor: '#2C3E50',
+    padding: 18,
+    borderRadius: 20,
+    alignItems: 'center',
+    elevation: 3,
+    flexDirection: 'row',
+    gap: 12,
+  },
+  gameBtnIcon: { fontSize: 32 },
+  gameBtnText: { fontSize: 17, fontWeight: 'bold', color: '#FFF', flex: 1 },
+  gameBtnSub: { fontSize: 12, color: '#AAA' },
   editBtn: {
     marginHorizontal: 20,
     marginTop: 24,
@@ -433,5 +596,68 @@ const styles = StyleSheet.create({
     color: '#E74C3C',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  versionSection: {
+    marginHorizontal: 20,
+    marginTop: 28,
+  },
+  versionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2C3E50',
+    marginBottom: 12,
+  },
+  versionCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+    elevation: 1,
+  },
+  versionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  versionBadge: {
+    backgroundColor: '#8B6914',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  versionBadgeText: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  currentBadge: {
+    backgroundColor: '#27AE60',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  currentBadgeText: {
+    color: '#FFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  versionDate: {
+    fontSize: 12,
+    color: '#999',
+    marginLeft: 'auto',
+  },
+  changeItem: {
+    fontSize: 13,
+    color: '#555',
+    marginBottom: 3,
+    lineHeight: 18,
+  },
+  versionFooter: {
+    textAlign: 'center',
+    fontSize: 12,
+    color: '#BBB',
+    marginTop: 16,
+    marginBottom: 32,
   },
 });

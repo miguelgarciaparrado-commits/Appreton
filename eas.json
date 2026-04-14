@@ -7,22 +7,40 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "env": {
+        "JAVA_HOME": "/usr/lib/jvm/java-17-openjdk-amd64"
+      },
       "android": {
         "buildType": "apk",
-        "image": "default"
+        "image": "ubuntu-22.04-jdk-17-ndk-r26b"
+      },
+      "ios": {
+        "simulator": false
       }
     },
     "preview": {
       "distribution": "internal",
+      "env": {
+        "JAVA_HOME": "/usr/lib/jvm/java-17-openjdk-amd64"
+      },
       "android": {
         "buildType": "apk",
-        "image": "default"
+        "image": "ubuntu-22.04-jdk-17-ndk-r26b"
+      },
+      "ios": {
+        "distribution": "internal"
       }
     },
     "production": {
+      "env": {
+        "JAVA_HOME": "/usr/lib/jvm/java-17-openjdk-amd64"
+      },
       "android": {
         "buildType": "app-bundle",
-        "image": "default"
+        "image": "ubuntu-22.04-jdk-17-ndk-r26b"
+      },
+      "ios": {
+        "distribution": "store"
       }
     }
   },
@@ -31,6 +49,11 @@
       "android": {
         "serviceAccountKeyPath": "./google-play-key.json",
         "track": "production"
+      },
+      "ios": {
+        "appleId": "TU_APPLE_ID@ejemplo.com",
+        "ascAppId": "TU_APP_STORE_CONNECT_APP_ID",
+        "appleTeamId": "TU_TEAM_ID"
       }
     }
   }

@@ -1,12 +1,19 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
+import { storageGet, storageSet, storageRemove } from './storage';
+import { supabase } from './supabase';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const AUTH_USER_KEY = '@appreton_auth_user';
 const ALL_USERS_KEY = '@appreton_all_users';
+const CREDENTIALS_KEY = '@appreton_credentials';
+const USERS_DATA_KEY = '@appreton_users_data';
 
 // Level definitions
 const LEVELS = [
   { level: 1, title: 'Cagoncete', minXp: 0 },
-  { level: 2, title: 'Explorador de Banos', minXp: 100 },
+  { level: 2, title: 'Explorador de WC', minXp: 100 },
   { level: 3, title: 'Critico de Retretes', minXp: 250 },
   { level: 4, title: 'Inspector de WC', minXp: 500 },
   { level: 5, title: 'Maestro Cagador', minXp: 1000 },
@@ -32,7 +39,7 @@ const SAMPLE_USERS = [
   },
   {
     id: 'sample_2',
-    displayName: 'LaReinaDelBano',
+    displayName: 'LaReinaDelWC',
     email: 'reina@mail.com',
     provider: 'instagram',
     avatarType: 'poop_1',
@@ -84,7 +91,7 @@ const SAMPLE_USERS = [
   },
   {
     id: 'sample_6',
-    displayName: 'BuscaBanos',
+    displayName: 'BuscaWC',
     email: 'busca@mail.com',
     provider: 'instagram',
     avatarType: 'poop_4',
@@ -156,21 +163,37 @@ export function getAllLevels() {
 // Get current logged-in user
 export async function getCurrentUser() {
   try {
-    const data = await AsyncStorage.getItem(AUTH_USER_KEY);
+    const data = await storageGet(AUTH_USER_KEY);
     return data ? JSON.parse(data) : null;
   } catch {
     return null;
   }
 }
 
-// Mock login - simulates OAuth by creating a user record
-export async function loginWithProvider(provider) {
-  const userId = 'user_' + Date.now().toString();
+// Register new user with email + password via Supabase Auth
+export async function register(email, password) {
+  const emailLower = email.trim().toLowerCase();
+
+  const { data, error } = await supabase.auth.signUp({
+    email: emailLower,
+    password,
+  });
+
+  if (error) {
+    if (error.message.includes('already registered') || error.message.includes('already been registered')) {
+      throw new Error('Este email ya esta registrado');
+    }
+    throw new Error(error.message);
+  }
+
+  const authUser = data.user;
+  if (!authUser) throw new Error('No se pudo crear la cuenta');
+
   const user = {
-    id: userId,
+    id: authUser.id,
     displayName: '',
-    email: `${provider}_user_${Date.now()}@appreton.app`,
-    provider,
+    email: emailLower,
+    provider: 'email',
     avatarType: 'poop_1',
     customAvatarUri: null,
     level: 1,
@@ -179,8 +202,224 @@ export async function loginWithProvider(provider) {
     joinDate: new Date().toISOString().split('T')[0],
     profileCompleted: false,
   };
-  await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
-  // Also add to all users list
+
+  await storageSet(AUTH_USER_KEY, JSON.stringify(user));
+  await saveUserData(authUser.id, user);
+  await addOrUpdateUserInList(user);
+  return user;
+}
+
+// Login with email + password via Supabase Auth
+export async function loginWithEmail(email, password) {
+  const emailLower = email.trim().toLowerCase();
+
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: emailLower,
+    password,
+  });
+
+  if (error) {
+    if (error.message.includes('Invalid login credentials') || error.message.includes('invalid_credentials')) {
+      throw new Error('Email o contrasena incorrectos');
+    }
+    throw new Error(error.message);
+  }
+
+  const authUser = data.user;
+  if (!authUser) throw new Error('No se pudo iniciar sesion');
+
+  // Check Supabase profile first
+  let user = null;
+  try {
+    const { data: supabaseProfile } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('id', authUser.id)
+      .single();
+
+    if (supabaseProfile) {
+      user = {
+        id: supabaseProfile.id,
+        displayName: supabaseProfile.display_name || '',
+        email: supabaseProfile.email || emailLower,
+        provider: 'email',
+        avatarType: supabaseProfile.avatar_type || 'poop_1',
+        customAvatarUri: supabaseProfile.custom_avatar_uri || null,
+        level: supabaseProfile.level || 1,
+        xp: supabaseProfile.xp || 0,
+        totalReviews: supabaseProfile.total_reviews || 0,
+        joinDate: supabaseProfile.join_date || new Date().toISOString().split('T')[0],
+        profileCompleted: supabaseProfile.profile_completed || false,
+        gender: supabaseProfile.gender || null,
+      };
+    }
+  } catch {}
+
+  if (!user) {
+    const localData = await getUserData(authUser.id);
+    user = localData || {
+      id: authUser.id,
+      displayName: '',
+      email: emailLower,
+      provider: 'email',
+      avatarType: 'poop_1',
+      customAvatarUri: null,
+      level: 1,
+      xp: 0,
+      totalReviews: 0,
+      joinDate: new Date().toISOString().split('T')[0],
+      profileCompleted: false,
+    };
+  }
+
+  await storageSet(AUTH_USER_KEY, JSON.stringify(user));
+  await saveUserData(authUser.id, user);
+  return user;
+}
+
+// Forgot password — sends reset email via Supabase
+export async function forgotPassword(email) {
+  const { error } = await supabase.auth.resetPasswordForEmail(
+    email.trim().toLowerCase(),
+    { redirectTo: 'appreton://auth/reset-password' }
+  );
+  if (error) throw new Error(error.message);
+}
+
+async function saveUserData(userId, user) {
+  try {
+    const data = await storageGet(USERS_DATA_KEY);
+    const users = data ? JSON.parse(data) : {};
+    users[userId] = user;
+    await storageSet(USERS_DATA_KEY, JSON.stringify(users));
+  } catch {}
+}
+
+async function getUserData(userId) {
+  try {
+    const data = await storageGet(USERS_DATA_KEY);
+    const users = data ? JSON.parse(data) : {};
+    return users[userId] || null;
+  } catch {
+    return null;
+  }
+}
+
+// Providers supported by Supabase OAuth
+const SUPABASE_OAUTH_PROVIDERS = {
+  google: 'google',
+  facebook: 'facebook',
+  apple: 'apple',
+};
+
+// Login with OAuth provider via Supabase + in-app browser
+export async function loginWithProvider(provider) {
+  const supabaseProvider = SUPABASE_OAUTH_PROVIDERS[provider];
+
+  if (!supabaseProvider) {
+    throw new Error('Este proveedor no está disponible todavía. Usa Google, Facebook o Apple.');
+  }
+
+  const redirectUrl = Linking.createURL('auth/callback');
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: supabaseProvider,
+    options: {
+      redirectTo: redirectUrl,
+      skipBrowserRedirect: true,
+    },
+  });
+
+  if (error) throw new Error(error.message);
+  if (!data?.url) throw new Error('No se pudo iniciar la autenticación');
+
+  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+
+  if (result.type === 'cancel' || result.type === 'dismiss') {
+    throw new Error('Inicio de sesión cancelado');
+  }
+  if (result.type !== 'success') {
+    throw new Error('No se pudo completar el inicio de sesión');
+  }
+
+  // Try to extract session tokens from the callback URL
+  const callbackUrl = result.url;
+  const hashPart = callbackUrl.split('#')[1];
+  let sessionSet = false;
+
+  if (hashPart) {
+    const params = new URLSearchParams(hashPart);
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+    if (accessToken) {
+      await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken || '',
+      });
+      sessionSet = true;
+    }
+  }
+
+  if (!sessionSet) {
+    // PKCE flow: exchange code for session
+    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(callbackUrl);
+    if (exchangeError) throw new Error(exchangeError.message);
+  }
+
+  const { data: { user: authUser }, error: userError } = await supabase.auth.getUser();
+  if (userError || !authUser) throw new Error('No se pudo obtener la información del usuario');
+
+  // Reuse existing profile: check Supabase first, then local storage, then create new
+  let user = null;
+
+  try {
+    const { data: supabaseProfile } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('id', authUser.id)
+      .single();
+
+    if (supabaseProfile) {
+      user = {
+        id: supabaseProfile.id,
+        displayName: supabaseProfile.display_name || '',
+        email: supabaseProfile.email || authUser.email || '',
+        provider: supabaseProfile.provider || provider,
+        avatarType: supabaseProfile.avatar_type || 'poop_1',
+        customAvatarUri: supabaseProfile.custom_avatar_uri || null,
+        level: supabaseProfile.level || 1,
+        xp: supabaseProfile.xp || 0,
+        totalReviews: supabaseProfile.total_reviews || 0,
+        joinDate: supabaseProfile.join_date || new Date().toISOString().split('T')[0],
+        profileCompleted: supabaseProfile.profile_completed || false,
+        gender: supabaseProfile.gender || null,
+      };
+    }
+  } catch {}
+
+  if (!user) {
+    const existingData = await getUserData(authUser.id);
+    user = existingData || {
+      id: authUser.id,
+      displayName:
+        authUser.user_metadata?.full_name ||
+        authUser.user_metadata?.name ||
+        authUser.email?.split('@')[0] ||
+        '',
+      email: authUser.email || '',
+      provider,
+      avatarType: 'poop_1',
+      customAvatarUri: null,
+      level: 1,
+      xp: 0,
+      totalReviews: 0,
+      joinDate: new Date().toISOString().split('T')[0],
+      profileCompleted: false,
+    };
+  }
+
+  await storageSet(AUTH_USER_KEY, JSON.stringify(user));
+  await saveUserData(authUser.id, user);
   await addOrUpdateUserInList(user);
   return user;
 }
@@ -193,14 +432,15 @@ export async function saveUserProfile(updates) {
   // Recalculate level from XP
   const levelInfo = getLevelInfo(updated.xp);
   updated.level = levelInfo.level;
-  await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(updated));
+  await storageSet(AUTH_USER_KEY, JSON.stringify(updated));
+  await saveUserData(updated.id, updated);
   await addOrUpdateUserInList(updated);
   return updated;
 }
 
 // Logout
 export async function logout() {
-  await AsyncStorage.removeItem(AUTH_USER_KEY);
+  await storageRemove(AUTH_USER_KEY);
 }
 
 // Add XP to the current user (called after a review)
@@ -216,65 +456,76 @@ export async function addXpToUser() {
     totalReviews: newTotalReviews,
     level: levelInfo.level,
   };
-  await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(updated));
+  await storageSet(AUTH_USER_KEY, JSON.stringify(updated));
+  await saveUserData(updated.id, updated);
   await addOrUpdateUserInList(updated);
   return { user: updated, levelInfo, leveledUp: levelInfo.level > user.level };
 }
 
-// Internal: maintain a list of all users for ranking
+// Internal: maintain a list of all users for ranking (local + Supabase)
 async function addOrUpdateUserInList(user) {
+  const entry = {
+    id: user.id,
+    displayName: user.displayName,
+    avatarType: user.avatarType,
+    customAvatarUri: user.customAvatarUri,
+    level: user.level,
+    xp: user.xp,
+    totalReviews: user.totalReviews,
+    isSample: user.isSample || false,
+  };
+
+  // Sync to Supabase
   try {
-    const data = await AsyncStorage.getItem(ALL_USERS_KEY);
-    let users = data ? JSON.parse(data) : [];
-    const index = users.findIndex((u) => u.id === user.id);
-    // Only store ranking-relevant fields
-    const entry = {
+    await supabase.from('user_profiles').upsert({
       id: user.id,
-      displayName: user.displayName,
-      avatarType: user.avatarType,
-      customAvatarUri: user.customAvatarUri,
+      display_name: user.displayName,
+      email: user.email,
+      provider: user.provider,
+      avatar_type: user.avatarType,
+      custom_avatar_uri: user.customAvatarUri,
       level: user.level,
       xp: user.xp,
-      totalReviews: user.totalReviews,
-      isSample: user.isSample || false,
-    };
-    if (index !== -1) {
-      users[index] = entry;
-    } else {
-      users.push(entry);
-    }
-    await AsyncStorage.setItem(ALL_USERS_KEY, JSON.stringify(users));
-  } catch {
-    // ignore
-  }
+      total_reviews: user.totalReviews,
+      join_date: user.joinDate,
+      profile_completed: user.profileCompleted || false,
+      gender: user.gender || null,
+      is_sample: user.isSample || false,
+    });
+  } catch {}
+
+  // Also keep local cache
+  try {
+    const data = await storageGet(ALL_USERS_KEY);
+    let users = data ? JSON.parse(data) : [];
+    const index = users.findIndex((u) => u.id === user.id);
+    if (index !== -1) users[index] = entry;
+    else users.push(entry);
+    await storageSet(ALL_USERS_KEY, JSON.stringify(users));
+  } catch {}
 }
 
-// Get all users for ranking (includes sample users)
+// Get all users for ranking — solo Supabase
 export async function getAllUsersForRanking() {
   try {
-    const data = await AsyncStorage.getItem(ALL_USERS_KEY);
-    let users = data ? JSON.parse(data) : [];
-    // Ensure sample users exist
-    const hasSamples = users.some((u) => u.isSample);
-    if (!hasSamples) {
-      const sampleEntries = SAMPLE_USERS.map((u) => ({
-        id: u.id,
-        displayName: u.displayName,
-        avatarType: u.avatarType,
-        customAvatarUri: u.customAvatarUri,
-        level: u.level,
-        xp: u.xp,
-        totalReviews: u.totalReviews,
-        isSample: true,
-      }));
-      users = [...users, ...sampleEntries];
-      await AsyncStorage.setItem(ALL_USERS_KEY, JSON.stringify(users));
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .order('xp', { ascending: false });
+
+    if (!error && data) {
+      return data
+        .map((u) => ({
+          id: u.id,
+          displayName: u.display_name,
+          avatarType: u.avatar_type,
+          customAvatarUri: u.custom_avatar_uri,
+          level: u.level,
+          xp: u.xp,
+          totalReviews: u.total_reviews,
+        }))
+        .filter((u) => u.displayName && u.displayName.length > 0);
     }
-    // Sort by XP descending
-    return users
-      .filter((u) => u.displayName && u.displayName.length > 0)
-      .sort((a, b) => b.xp - a.xp);
-  } catch {
-    return [];
-  }
+  } catch {}
+  return [];
 }
