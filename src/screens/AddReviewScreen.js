@@ -37,9 +37,11 @@ export default function AddReviewScreen({ route, navigation }) {
   const [hasBrush, setHasBrush] = useState(false);
   const [requiredOrder, setRequiredOrder] = useState(null); // null = not answered, true = yes, false = no
   const [extras, setExtras] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
 
 
   async function handleSubmit() {
+    if (submitting) return; // evita doble-tap
     if (rating === 0) {
       Alert.alert('Ey!', 'Pon una valoracion con las cacas 💩');
       return;
@@ -49,16 +51,23 @@ export default function AddReviewScreen({ route, navigation }) {
       return;
     }
 
-    await addReview({
-      placeId: place.id,
-      rating,
-      comment: comment.trim(),
-      hasPaper,
-      hasSoap,
-      hasBrush,
-      requiredOrder,
-      extras,
-    });
+    setSubmitting(true);
+    try {
+      await addReview({
+        placeId: place.id,
+        rating,
+        comment: comment.trim(),
+        hasPaper,
+        hasSoap,
+        hasBrush,
+        requiredOrder,
+        extras,
+      });
+    } catch (e) {
+      setSubmitting(false);
+      Alert.alert('Error', 'No se pudo guardar tu opinion. Intentalo de nuevo.');
+      return;
+    }
 
     Alert.alert('Gracias! 💩', 'Tu opinion ha sido guardada', [
       { text: 'OK', onPress: () => navigation.goBack() },

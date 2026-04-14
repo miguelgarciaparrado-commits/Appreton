@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
-import { getPlaces } from '../data/store';
+import { getPlaces, getReviews } from '../data/store';
 import { fetchNearbyPlaces } from '../data/googlePlaces';
 import PlaceCard from '../components/PlaceCard';
 
@@ -50,6 +50,7 @@ function formatDistance(km) {
 export default function HomeScreen({ navigation }) {
   const [appPlaces, setAppPlaces] = useState([]);
   const [googlePlaces, setGooglePlaces] = useState([]);
+  const [allReviews, setAllReviews] = useState([]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('todos');
   const [sortBy, setSortBy] = useState('distance');
@@ -93,8 +94,9 @@ export default function HomeScreen({ navigation }) {
   }
 
   async function loadAppPlaces() {
-    const data = await getPlaces();
+    const [data, reviews] = await Promise.all([getPlaces(), getReviews()]);
     setAppPlaces(data);
+    setAllReviews(reviews);
   }
 
   async function loadGooglePlaces(lat, lon) {
@@ -107,14 +109,41 @@ export default function HomeScreen({ navigation }) {
     }
   }
 
+  // Agrupa reviews por placeId y calcula media/conteo en cliente
+  // Así el Explorar muestra la misma media que el detalle sin depender
+  // de places.avg_rating de Supabase (puede quedar desactualizada)
+  const reviewsByPlace = React.useMemo(() => {
+    const map = new Map();
+    for (const r of allReviews) {
+      if (!map.has(r.placeId)) map.set(r.placeId, []);
+      map.get(r.placeId).push(r);
+    }
+    const result = {};
+    for (const [pid, list] of map.entries()) {
+      const avg = list.reduce((s, r) => s + r.rating, 0) / list.length;
+      result[pid] = {
+        avgRating: Math.round(avg * 10) / 10,
+        reviewCount: list.length,
+      };
+    }
+    return result;
+  }, [allReviews]);
+
+  function withComputedRating(p) {
+    const stats = reviewsByPlace[p.id];
+    if (!stats) return p;
+    return { ...p, avgRating: stats.avgRating, reviewCount: stats.reviewCount };
+  }
+
   // Merge Google Places with app places
   // App places (including those created from Google results) take priority
   const mergedPlaces = React.useMemo(() => {
     const appIds = new Set(appPlaces.map((p) => p.id));
     // Google places that don't yet exist in the app DB
     const googleOnly = googlePlaces.filter((gp) => !appIds.has(gp.id));
-    return [...appPlaces, ...googleOnly];
-  }, [appPlaces, googlePlaces]);
+    return [...appPlaces, ...googleOnly].map(withComputedRating);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appPlaces, googlePlaces, reviewsByPlace]);
 
   // Add distance, filter to 600 m
   const placesWithDistance = mergedPlaces
