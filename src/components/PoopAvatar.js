@@ -34,7 +34,12 @@ export default function PoopAvatar({ type, customUri, size = 60 }) {
   if (type === 'custom' && customUri) {
     return (
       <View style={[styles.container, { width: size, height: size, borderRadius: size / 2, overflow: 'hidden' }]}>
-        <Image source={{ uri: customUri }} style={{ width: size, height: size }} resizeMode="cover" />
+        <Image
+          key={customUri}
+          source={{ uri: customUri }}
+          style={{ width: size, height: size }}
+          resizeMode="cover"
+        />
       </View>
     );
   }

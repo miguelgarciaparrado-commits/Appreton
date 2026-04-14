@@ -36,10 +36,46 @@ export default function ProfileScreen({ onLogout, onEditProfile }) {
     }
   }
 
+  // Copia la imagen elegida a un path permanente del sandbox.
+  // - Usa nombre unico con timestamp para evitar cache del componente Image
+  //   (React Native cachea por URI; si el path no cambia, no se ve la nueva foto).
+  // - Si el picker devuelve content:// (camara Android con allowsEditing),
+  //   lee la imagen como base64 y la reescribe como file:// — copyAsync no
+  //   soporta content:// directamente.
   async function savePermanentAvatar(tempUri) {
-    const fileName = `avatar_${user?.id || Date.now()}.jpg`;
+    const fileName = `avatar_${user?.id || 'anon'}_${Date.now()}.jpg`;
     const destPath = FileSystem.documentDirectory + fileName;
-    await FileSystem.copyAsync({ from: tempUri, to: destPath });
+
+    if (tempUri.startsWith('content://')) {
+      // Fallback para content URIs (camara con crop en algunos Android)
+      const base64 = await FileSystem.readAsStringAsync(tempUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      await FileSystem.writeAsStringAsync(destPath, base64, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+    } else {
+      await FileSystem.copyAsync({ from: tempUri, to: destPath });
+    }
+
+    // Verificacion: si por lo que sea el archivo no existe, lanzamos un
+    // error descriptivo en vez de guardar un path roto.
+    const info = await FileSystem.getInfoAsync(destPath);
+    if (!info.exists || info.size === 0) {
+      throw new Error(`No se pudo guardar la imagen (${tempUri})`);
+    }
+
+    // Borra avatares viejos del mismo usuario para no acumular basura
+    try {
+      const dir = FileSystem.documentDirectory;
+      const files = await FileSystem.readDirectoryAsync(dir);
+      for (const f of files) {
+        if (f.startsWith(`avatar_${user?.id || 'anon'}_`) && f !== fileName) {
+          try { await FileSystem.deleteAsync(dir + f, { idempotent: true }); } catch {}
+        }
+      }
+    } catch {}
+
     return destPath;
   }
 
@@ -47,28 +83,48 @@ export default function ProfileScreen({ onLogout, onEditProfile }) {
     setAvatarModalVisible(false);
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') { Alert.alert('Permiso denegado', 'Necesitamos acceso a tu galeria'); return; }
-      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.7 });
-      if (!result.canceled && result.assets?.length > 0) {
-        const uri = await savePermanentAvatar(result.assets[0].uri);
-        const updated = await saveUserProfile({ avatarType: 'custom', customAvatarUri: uri });
-        setUser(updated);
+      if (status !== 'granted') {
+        Alert.alert('Permiso denegado', 'Necesitamos acceso a tu galeria');
+        return;
       }
-    } catch { Alert.alert('Error', 'No se pudo seleccionar la imagen'); }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: 'images',
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+      if (result.canceled || !result.assets?.length) return;
+      const uri = await savePermanentAvatar(result.assets[0].uri);
+      const updated = await saveUserProfile({ avatarType: 'custom', customAvatarUri: uri });
+      setUser(updated);
+    } catch (e) {
+      console.error('[Appreton] pickAvatarFromGallery error:', e);
+      Alert.alert('Error', `No se pudo seleccionar la imagen: ${e?.message || e}`);
+    }
   }
 
   async function pickAvatarFromCamera() {
     setAvatarModalVisible(false);
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== 'granted') { Alert.alert('Permiso denegado', 'Necesitamos acceso a la camara'); return; }
-      const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.7 });
-      if (!result.canceled && result.assets?.length > 0) {
-        const uri = await savePermanentAvatar(result.assets[0].uri);
-        const updated = await saveUserProfile({ avatarType: 'custom', customAvatarUri: uri });
-        setUser(updated);
+      if (status !== 'granted') {
+        Alert.alert('Permiso denegado', 'Necesitamos acceso a la camara');
+        return;
       }
-    } catch { Alert.alert('Error', 'No se pudo tomar la foto'); }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: 'images',
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+      if (result.canceled || !result.assets?.length) return;
+      const uri = await savePermanentAvatar(result.assets[0].uri);
+      const updated = await saveUserProfile({ avatarType: 'custom', customAvatarUri: uri });
+      setUser(updated);
+    } catch (e) {
+      console.error('[Appreton] pickAvatarFromCamera error:', e);
+      Alert.alert('Error', `No se pudo tomar la foto: ${e?.message || e}`);
+    }
   }
 
   async function selectPoopAvatar(avatarKey) {
