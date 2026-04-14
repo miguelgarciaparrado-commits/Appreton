@@ -32,6 +32,13 @@ create table if not exists reviews (
   created_at timestamp with time zone default now()
 );
 
+-- Una opinion por usuario y sitio (los usuarios anonimos con user_id NULL
+-- pueden tener varias porque Postgres trata NULL como distinto en unique).
+alter table reviews
+  drop constraint if exists reviews_user_place_unique;
+alter table reviews
+  add constraint reviews_user_place_unique unique (user_id, place_id);
+
 -- Tabla de perfiles de usuario (para ranking global)
 create table if not exists user_profiles (
   id text primary key,
@@ -46,8 +53,16 @@ create table if not exists user_profiles (
   join_date text,
   profile_completed boolean default false,
   gender text,
-  is_sample boolean default false
+  is_sample boolean default false,
+  last_review_date text,
+  current_streak int default 0
 );
+
+-- Migracion para instalaciones existentes (idempotente)
+alter table user_profiles
+  add column if not exists last_review_date text;
+alter table user_profiles
+  add column if not exists current_streak int default 0;
 
 -- Politicas de acceso publico (lectura y escritura para todos)
 alter table places enable row level security;

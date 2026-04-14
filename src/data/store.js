@@ -1,6 +1,12 @@
 import { storageGet, storageSet } from './storage';
 import { supabase } from './supabase';
-import { addXpToUser, getCurrentUser } from './auth';
+import {
+  addXpToUser,
+  getCurrentUser,
+  calculateReviewXp,
+  computeDailyProgress,
+  countTodayXpHits,
+} from './auth';
 
 const PLACES_KEY = '@appreton_places';
 const REVIEWS_KEY = '@appreton_reviews';
@@ -200,46 +206,197 @@ export async function addPlace(place) {
   return newPlace;
 }
 
-export async function addReview(review) {
+// Busca la opinion del usuario actual para un sitio concreto (si existe).
+// Devuelve la review completa o null.
+export async function getUserReviewForPlace(placeId) {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  try {
+    const { data, error } = await supabase
+      .from('reviews')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('place_id', placeId)
+      .maybeSingle();
+    if (!error && data) return rowToReview(data);
+  } catch {}
+  return null;
+}
+
+async function refreshPlaceAggregates(placeId) {
+  const { data: allReviews } = await supabase
+    .from('reviews').select('rating').eq('place_id', placeId);
+  if (allReviews && allReviews.length > 0) {
+    const avg = allReviews.reduce((s, r) => s + r.rating, 0) / allReviews.length;
+    await supabase.from('places').update({
+      avg_rating: Math.round(avg * 10) / 10,
+      review_count: allReviews.length,
+    }).eq('id', placeId);
+  } else if (allReviews) {
+    await supabase.from('places').update({
+      avg_rating: 0,
+      review_count: 0,
+    }).eq('id', placeId);
+  }
+}
+
+// Distancia Haversine en metros
+function distanceMeters(lat1, lon1, lat2, lon2) {
+  if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return Infinity;
+  const R = 6371000;
+  const toRad = (x) => (x * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Upsert de opinion. Si el usuario ya opino este sitio, actualiza la
+// existente SIN dar XP. Si es nueva, inserta y calcula XP con bonuses.
+//
+// Devuelve: { wasEdit, xpGained, leveledUp, levelInfo, reviewId }
+//
+// El parametro `context` puede incluir `userCoords` para el bonus "estaba en
+// el sitio" y cualquier dato extra que la UI quiera pasar.
+export async function upsertReview(review, context = {}) {
   const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    throw new Error('Tienes que iniciar sesion para opinar');
+  }
+
+  const userId = currentUser.id;
+  const placeId = review.placeId;
+  const today = new Date().toISOString().split('T')[0];
+
+  // 1) Comprobar si el usuario ya tiene opinion en este sitio
+  let existing = null;
+  try {
+    const { data } = await supabase
+      .from('reviews')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('place_id', placeId)
+      .maybeSingle();
+    existing = data;
+  } catch {}
+
+  // --- MODO EDICION ---
+  if (existing) {
+    const { error: updErr } = await supabase.from('reviews').update({
+      rating: review.rating,
+      comment: review.comment,
+      has_paper: review.hasPaper,
+      has_soap: review.hasSoap,
+      has_brush: review.hasBrush,
+      required_order: review.requiredOrder ?? null,
+      extras: review.extras || [],
+    }).eq('id', existing.id);
+
+    if (updErr) {
+      console.error('[Appreton] upsertReview update error:', updErr);
+      throw new Error(`No se pudo actualizar la opinion: ${updErr.message}`);
+    }
+
+    await refreshPlaceAggregates(placeId);
+
+    // Caché local
+    try {
+      const cached = await storageGet(REVIEWS_KEY);
+      const reviews = cached ? JSON.parse(cached) : [];
+      const idx = reviews.findIndex((r) => r.id === existing.id);
+      if (idx !== -1) {
+        reviews[idx] = { ...reviews[idx], ...review };
+        await storageSet(REVIEWS_KEY, JSON.stringify(reviews));
+      }
+    } catch {}
+
+    return {
+      wasEdit: true,
+      xpGained: 0,
+      leveledUp: false,
+      levelInfo: null,
+      reviewId: existing.id,
+    };
+  }
+
+  // --- MODO INSERT (nueva opinion) ---
+  const newId = Date.now().toString();
   const newReview = {
     ...review,
-    id: Date.now().toString(),
-    date: new Date().toISOString().split('T')[0],
-    userId: currentUser ? currentUser.id : null,
+    id: newId,
+    date: today,
+    userId,
   };
 
   const { error: insertError } = await supabase.from('reviews').insert({
-    id: newReview.id, place_id: newReview.placeId, user_id: newReview.userId,
-    rating: newReview.rating, comment: newReview.comment,
-    has_paper: newReview.hasPaper, has_soap: newReview.hasSoap,
-    has_brush: newReview.hasBrush, required_order: newReview.requiredOrder ?? null,
-    extras: newReview.extras || [], date: newReview.date,
+    id: newId, place_id: placeId, user_id: userId,
+    rating: review.rating, comment: review.comment,
+    has_paper: review.hasPaper, has_soap: review.hasSoap,
+    has_brush: review.hasBrush, required_order: review.requiredOrder ?? null,
+    extras: review.extras || [], date: today,
   });
 
   if (insertError) {
-    console.error('[Appreton] addReview insert error:', insertError);
+    console.error('[Appreton] upsertReview insert error:', insertError);
+    // Si se cuela por race y devuelve unique violation, reintentamos como update
+    if (insertError.code === '23505') {
+      return upsertReview(review, context);
+    }
     throw new Error(`No se pudo guardar la opinion: ${insertError.message}`);
   }
 
-  // Actualizar avg_rating y review_count en places
-  const { data: allReviews, error: selectErr } = await supabase
-    .from('reviews').select('rating').eq('place_id', newReview.placeId);
-  if (selectErr) {
-    console.error('[Appreton] addReview select error:', selectErr);
-  }
-  if (allReviews && allReviews.length > 0) {
-    const avg = allReviews.reduce((s, r) => s + r.rating, 0) / allReviews.length;
-    const { error: updErr } = await supabase.from('places').update({
-      avg_rating: Math.round(avg * 10) / 10,
-      review_count: allReviews.length,
-    }).eq('id', newReview.placeId);
-    if (updErr) {
-      console.error('[Appreton] addReview update places error:', updErr);
+  await refreshPlaceAggregates(placeId);
+
+  // --- Calcular XP ---
+  // ¿Es la primera opinion del sitio?
+  let isFirstOnPlace = false;
+  try {
+    const { data: count } = await supabase
+      .from('reviews').select('id').eq('place_id', placeId);
+    isFirstOnPlace = (count?.length || 0) === 1;
+  } catch {}
+
+  // ¿Comentario largo?
+  const hasLongComment = (review.comment || '').trim().length >= 100;
+
+  // ¿Estaba en el sitio al opinar? (GPS <50m)
+  let isOnSite = false;
+  try {
+    if (context.userCoords) {
+      const { data: placeRow } = await supabase
+        .from('places').select('latitude,longitude').eq('id', placeId).maybeSingle();
+      if (placeRow) {
+        const d = distanceMeters(
+          context.userCoords.latitude,
+          context.userCoords.longitude,
+          placeRow.latitude,
+          placeRow.longitude
+        );
+        isOnSite = d <= 50;
+      }
     }
+  } catch {}
+
+  // Cooldown diario: a partir de la 11a opinion del dia, 0 XP
+  const todayHits = await countTodayXpHits(currentUser);
+  const dailyCapHit = todayHits >= 10; // antes del insert actual había >=10 con XP
+
+  let xpGained = 0;
+  let dailyProgress = null;
+  if (!dailyCapHit) {
+    dailyProgress = computeDailyProgress(currentUser);
+    xpGained = calculateReviewXp({
+      isFirstOnPlace,
+      hasLongComment,
+      isOnSite,
+      isFirstOfDay: dailyProgress.isFirstOfDay,
+      currentStreak: dailyProgress.newStreak,
+    });
   }
 
-  // Escribir en caché local (fallback para lecturas offline)
+  // Cache local (fallback)
   try {
     const cached = await storageGet(REVIEWS_KEY);
     const reviews = cached ? JSON.parse(cached) : [];
@@ -249,9 +406,9 @@ export async function addReview(review) {
     const placesCached = await storageGet(PLACES_KEY);
     if (placesCached) {
       const places = JSON.parse(placesCached);
-      const idx = places.findIndex((p) => p.id === newReview.placeId);
+      const idx = places.findIndex((p) => p.id === placeId);
       if (idx !== -1) {
-        const placeReviews = reviews.filter((r) => r.placeId === newReview.placeId);
+        const placeReviews = reviews.filter((r) => r.placeId === placeId);
         const avg = placeReviews.reduce((s, r) => s + r.rating, 0) / placeReviews.length;
         places[idx].avgRating = Math.round(avg * 10) / 10;
         places[idx].reviewCount = placeReviews.length;
@@ -260,6 +417,18 @@ export async function addReview(review) {
     }
   } catch {}
 
-  await addXpToUser();
-  return newReview;
+  const result = await addXpToUser(xpGained, dailyProgress);
+
+  return {
+    wasEdit: false,
+    xpGained,
+    leveledUp: !!result?.leveledUp,
+    levelInfo: result?.levelInfo || null,
+    reviewId: newId,
+    dailyCapHit,
+    bonuses: { isFirstOnPlace, hasLongComment, isOnSite },
+  };
 }
+
+// Alias para compatibilidad con código antiguo.
+export const addReview = upsertReview;

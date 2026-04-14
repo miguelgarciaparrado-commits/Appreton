@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,9 +11,11 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
+import * as Location from 'expo-location';
 import PoopRating from '../components/PoopRating';
-import { addReview } from '../data/store';
+import { upsertReview, getUserReviewForPlace } from '../data/store';
 
 const EXTRAS_OPTIONS = [
   { icon: '💨', label: 'Secador de manos' },
@@ -30,6 +32,8 @@ const EXTRAS_OPTIONS = [
 
 export default function AddReviewScreen({ route, navigation }) {
   const { place } = route.params;
+  const [loading, setLoading] = useState(true);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [hasPaper, setHasPaper] = useState(false);
@@ -39,6 +43,28 @@ export default function AddReviewScreen({ route, navigation }) {
   const [extras, setExtras] = useState([]);
   const [submitting, setSubmitting] = useState(false);
 
+  // Al montar, comprobamos si el usuario ya habia opinado este sitio.
+  // Si si, entramos en modo edicion y precargamos el formulario.
+  useEffect(() => {
+    (async () => {
+      try {
+        const existing = await getUserReviewForPlace(place.id);
+        if (existing) {
+          setIsEditMode(true);
+          setRating(existing.rating || 0);
+          setComment(existing.comment || '');
+          setHasPaper(!!existing.hasPaper);
+          setHasSoap(!!existing.hasSoap);
+          setHasBrush(!!existing.hasBrush);
+          setRequiredOrder(
+            existing.requiredOrder === undefined ? null : existing.requiredOrder
+          );
+          setExtras(existing.extras || []);
+        }
+      } catch {}
+      setLoading(false);
+    })();
+  }, [place.id]);
 
   async function handleSubmit() {
     if (submitting) return; // evita doble-tap
@@ -52,24 +78,67 @@ export default function AddReviewScreen({ route, navigation }) {
     }
 
     setSubmitting(true);
+
+    // Capturamos la ubicacion del usuario para el bonus "estaba en el sitio"
+    // (si hay permiso). Silenciamos errores: si no hay GPS, simplemente no
+    // cuenta como on-site.
+    let userCoords = null;
     try {
-      await addReview({
-        placeId: place.id,
-        rating,
-        comment: comment.trim(),
-        hasPaper,
-        hasSoap,
-        hasBrush,
-        requiredOrder,
-        extras,
-      });
+      const { status } = await Location.getForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        userCoords = {
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+        };
+      }
+    } catch {}
+
+    let result;
+    try {
+      result = await upsertReview(
+        {
+          placeId: place.id,
+          rating,
+          comment: comment.trim(),
+          hasPaper,
+          hasSoap,
+          hasBrush,
+          requiredOrder,
+          extras,
+        },
+        { userCoords }
+      );
     } catch (e) {
       setSubmitting(false);
-      Alert.alert('Error', 'No se pudo guardar tu opinion. Intentalo de nuevo.');
+      Alert.alert('Error', e?.message || 'No se pudo guardar tu opinion. Intentalo de nuevo.');
       return;
     }
 
-    Alert.alert('Gracias! 💩', 'Tu opinion ha sido guardada', [
+    if (result.wasEdit) {
+      Alert.alert('Guardado 📝', 'Tu opinion se ha actualizado (sin XP por editar)', [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
+      return;
+    }
+
+    // Nueva opinion: mostramos feedback con el XP ganado
+    let msg;
+    if (result.dailyCapHit) {
+      msg = 'Tu opinion se ha guardado. Hoy ya has superado el limite diario de XP (10 opiniones).';
+    } else {
+      const parts = [`+${result.xpGained} XP`];
+      if (result.bonuses?.isFirstOnPlace) parts.push('🏆 Primer opinador (+15)');
+      if (result.bonuses?.isOnSite) parts.push('📍 Estabas alli (+15)');
+      if (result.bonuses?.hasLongComment) parts.push('📝 Detallado (+5)');
+      msg = parts.join('\n');
+      if (result.leveledUp && result.levelInfo) {
+        msg += `\n\n🎉 Has subido a nivel ${result.levelInfo.level}: ${result.levelInfo.title}!`;
+      }
+    }
+    Alert.alert('Gracias! 💩', msg, [
       { text: 'OK', onPress: () => navigation.goBack() },
     ]);
   }
@@ -81,7 +150,27 @@ export default function AddReviewScreen({ route, navigation }) {
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.container}>
-          <Text style={styles.title}>Opinar sobre</Text>
+          {loading && (
+            <View style={styles.loadingBox}>
+              <ActivityIndicator color="#8B6914" />
+            </View>
+          )}
+
+          {isEditMode && !loading && (
+            <View style={styles.editBanner}>
+              <Text style={styles.editBannerIcon}>✏️</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.editBannerTitle}>Estas editando tu opinion</Text>
+                <Text style={styles.editBannerText}>
+                  Los cambios no dan XP. Solo la primera opinion de un sitio puntua.
+                </Text>
+              </View>
+            </View>
+          )}
+
+          <Text style={styles.title}>
+            {isEditMode ? 'Editar opinion de' : 'Opinar sobre'}
+          </Text>
           <Text style={styles.placeName}>{place.name}</Text>
 
           {/* Rating */}
@@ -221,8 +310,18 @@ export default function AddReviewScreen({ route, navigation }) {
           </View>
 
           {/* Submit */}
-          <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit}>
-            <Text style={styles.submitText}>Enviar opinion 💩</Text>
+          <TouchableOpacity
+            style={[styles.submitBtn, submitting && { opacity: 0.6 }]}
+            onPress={handleSubmit}
+            disabled={submitting}
+          >
+            {submitting ? (
+              <ActivityIndicator color="#FFF" />
+            ) : (
+              <Text style={styles.submitText}>
+                {isEditMode ? 'Guardar cambios' : 'Enviar opinion 💩'}
+              </Text>
+            )}
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -239,6 +338,24 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 40,
   },
+  loadingBox: {
+    alignItems: 'center',
+    padding: 20,
+  },
+  editBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFF3CD',
+    borderWidth: 1,
+    borderColor: '#F0C400',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    gap: 10,
+  },
+  editBannerIcon: { fontSize: 20 },
+  editBannerTitle: { fontSize: 14, fontWeight: '800', color: '#7A5D00', marginBottom: 2 },
+  editBannerText: { fontSize: 12, color: '#7A5D00', lineHeight: 17 },
   title: {
     fontSize: 16,
     color: '#666',

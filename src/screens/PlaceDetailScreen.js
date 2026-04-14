@@ -10,7 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { getReviews, ensurePlaceExists } from '../data/store';
+import { getReviews, ensurePlaceExists, getUserReviewForPlace } from '../data/store';
 import PoopRating from '../components/PoopRating';
 import AmenitiesBadges from '../components/AmenitiesBadges';
 
@@ -26,10 +26,12 @@ export default function PlaceDetailScreen({ route, navigation }) {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [userHasReview, setUserHasReview] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
       loadReviews();
+      checkUserReview();
     }, [])
   );
 
@@ -38,6 +40,15 @@ export default function PlaceDetailScreen({ route, navigation }) {
     const data = await getReviews(place.id);
     setReviews(data.sort((a, b) => new Date(b.date) - new Date(a.date)));
     setLoading(false);
+  }
+
+  async function checkUserReview() {
+    try {
+      const existing = await getUserReviewForPlace(place.id);
+      setUserHasReview(!!existing);
+    } catch {
+      setUserHasReview(false);
+    }
   }
 
   async function handleOpinar() {
@@ -143,7 +154,9 @@ export default function PlaceDetailScreen({ route, navigation }) {
             {creating ? (
               <ActivityIndicator color="#FFF" size="small" />
             ) : (
-              <Text style={styles.addBtnText}>+ Opinar</Text>
+              <Text style={styles.addBtnText}>
+                {userHasReview ? '✏️ Editar' : '+ Opinar'}
+              </Text>
             )}
           </TouchableOpacity>
         </View>

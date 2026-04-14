@@ -10,17 +10,48 @@ const ALL_USERS_KEY = '@appreton_all_users';
 const CREDENTIALS_KEY = '@appreton_credentials';
 const USERS_DATA_KEY = '@appreton_users_data';
 
-// Level definitions
+// Level definitions — curva exponencial, 12 niveles con nombres gamberros
 const LEVELS = [
-  { level: 1, title: 'Cagoncete', minXp: 0 },
-  { level: 2, title: 'Explorador de WC', minXp: 100 },
-  { level: 3, title: 'Critico de Retretes', minXp: 250 },
-  { level: 4, title: 'Inspector de WC', minXp: 500 },
-  { level: 5, title: 'Maestro Cagador', minXp: 1000 },
-  { level: 6, title: 'Leyenda del Trono', minXp: 2000 },
+  { level: 1,  title: 'Estreñido',             minXp: 0 },
+  { level: 2,  title: 'Novato del Zurullo',    minXp: 100 },
+  { level: 3,  title: 'Mojacalzones',          minXp: 250 },
+  { level: 4,  title: 'Picacacas',             minXp: 500 },
+  { level: 5,  title: 'Catador de Truños',     minXp: 900 },
+  { level: 6,  title: 'Forjamojones',          minXp: 1500 },
+  { level: 7,  title: 'Inspector de Retretes', minXp: 2400 },
+  { level: 8,  title: 'Maestro Cagador',       minXp: 3700 },
+  { level: 9,  title: 'Sabio del Plaston',     minXp: 5500 },
+  { level: 10, title: 'Leyenda del Trono',     minXp: 8000 },
+  { level: 11, title: 'Mito del Retrete',      minXp: 11500 },
+  { level: 12, title: 'Dios de la Cloaca',     minXp: 16000 },
 ];
 
-const XP_PER_REVIEW = 50;
+// XP base por opinion (bajado de 50 a 20 — ahora los bonus hacen el trabajo)
+const XP_BASE_REVIEW = 20;
+const XP_FIRST_ON_PLACE = 15;
+const XP_LONG_COMMENT = 5;
+const XP_ON_SITE = 15;
+const XP_FIRST_OF_DAY = 10;
+const XP_STREAK_3 = 10;
+const XP_STREAK_7 = 20;
+
+// Cooldown diario: a partir de la 11a opinion del dia no se dan puntos
+const DAILY_XP_CAP = 10;
+
+// Calcula XP final de una opinion a partir del contexto
+// context: { isFirstOnPlace, hasLongComment, isOnSite, isFirstOfDay, currentStreak }
+export function calculateReviewXp(context = {}) {
+  let xp = XP_BASE_REVIEW;
+  if (context.isFirstOnPlace) xp += XP_FIRST_ON_PLACE;
+  if (context.hasLongComment) xp += XP_LONG_COMMENT;
+  if (context.isOnSite) xp += XP_ON_SITE;
+  if (context.isFirstOfDay) {
+    xp += XP_FIRST_OF_DAY;
+    if ((context.currentStreak || 0) >= 7) xp += XP_STREAK_7;
+    else if ((context.currentStreak || 0) >= 3) xp += XP_STREAK_3;
+  }
+  return xp;
+}
 
 // Sample users for the ranking
 const SAMPLE_USERS = [
@@ -250,6 +281,8 @@ export async function loginWithEmail(email, password) {
         totalReviews: supabaseProfile.total_reviews || 0,
         joinDate: supabaseProfile.join_date || new Date().toISOString().split('T')[0],
         profileCompleted: supabaseProfile.profile_completed || false,
+        lastReviewDate: supabaseProfile.last_review_date || null,
+        currentStreak: supabaseProfile.current_streak || 0,
         gender: supabaseProfile.gender || null,
       };
     }
@@ -392,6 +425,8 @@ export async function loginWithProvider(provider) {
         totalReviews: supabaseProfile.total_reviews || 0,
         joinDate: supabaseProfile.join_date || new Date().toISOString().split('T')[0],
         profileCompleted: supabaseProfile.profile_completed || false,
+        lastReviewDate: supabaseProfile.last_review_date || null,
+        currentStreak: supabaseProfile.current_streak || 0,
         gender: supabaseProfile.gender || null,
       };
     }
@@ -443,23 +478,87 @@ export async function logout() {
   await storageRemove(AUTH_USER_KEY);
 }
 
-// Add XP to the current user (called after a review)
-export async function addXpToUser() {
+// Helpers de fecha (YYYY-MM-DD)
+function todayStr() {
+  return new Date().toISOString().split('T')[0];
+}
+function yesterdayStr() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().split('T')[0];
+}
+
+// Evalua si esta opinion cuenta como "primera del dia" y calcula la racha
+// actualizada. Devuelve { isFirstOfDay, newStreak, newLastReviewDate }.
+export function computeDailyProgress(user) {
+  const today = todayStr();
+  const last = user?.lastReviewDate;
+  if (last === today) {
+    // Ya hizo al menos una opinion hoy: no es primera del dia, racha no cambia
+    return {
+      isFirstOfDay: false,
+      newStreak: user?.currentStreak || 0,
+      newLastReviewDate: today,
+    };
+  }
+  // Es la primera del dia
+  const yday = yesterdayStr();
+  const newStreak = last === yday ? (user?.currentStreak || 0) + 1 : 1;
+  return {
+    isFirstOfDay: true,
+    newStreak,
+    newLastReviewDate: today,
+  };
+}
+
+// Cuenta cuantas opiniones con XP ha dado el usuario hoy (para el cooldown)
+export async function countTodayXpHits(user) {
+  if (!user) return 0;
+  try {
+    const { data } = await supabase
+      .from('reviews')
+      .select('date', { count: 'exact', head: false })
+      .eq('user_id', user.id)
+      .eq('date', todayStr());
+    return data?.length || 0;
+  } catch {
+    return 0;
+  }
+}
+
+// Sube XP y actualiza racha. Si xpGained === 0 (edicion o cooldown), solo
+// guarda la opinion sin tocar nivel.
+export async function addXpToUser(xpGained = 0, dailyProgress = null) {
   const user = await getCurrentUser();
   if (!user) return null;
-  const newXp = (user.xp || 0) + XP_PER_REVIEW;
+
+  const prevLevel = user.level || 1;
+  const newXp = (user.xp || 0) + (xpGained || 0);
   const newTotalReviews = (user.totalReviews || 0) + 1;
   const levelInfo = getLevelInfo(newXp);
+
   const updated = {
     ...user,
     xp: newXp,
     totalReviews: newTotalReviews,
     level: levelInfo.level,
   };
+
+  // Si la opinion ha contribuido al streak (fue primera del dia), guardamos
+  if (dailyProgress && dailyProgress.isFirstOfDay) {
+    updated.lastReviewDate = dailyProgress.newLastReviewDate;
+    updated.currentStreak = dailyProgress.newStreak;
+  }
+
   await storageSet(AUTH_USER_KEY, JSON.stringify(updated));
   await saveUserData(updated.id, updated);
   await addOrUpdateUserInList(updated);
-  return { user: updated, levelInfo, leveledUp: levelInfo.level > user.level };
+  return {
+    user: updated,
+    levelInfo,
+    leveledUp: levelInfo.level > prevLevel,
+    xpGained,
+  };
 }
 
 // Internal: maintain a list of all users for ranking (local + Supabase)
@@ -491,6 +590,8 @@ async function addOrUpdateUserInList(user) {
       profile_completed: user.profileCompleted || false,
       gender: user.gender || null,
       is_sample: user.isSample || false,
+      last_review_date: user.lastReviewDate || null,
+      current_streak: user.currentStreak || 0,
     });
   } catch {}
 

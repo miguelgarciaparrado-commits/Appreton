@@ -2,9 +2,22 @@
 // Al hacer cambios: actualizar CURRENT_VERSION y anadir entrada al CHANGELOG
 // Tambien actualizar "version" y "versionCode" en app.json
 
-export const CURRENT_VERSION = '1.3.0';
+export const CURRENT_VERSION = '1.4.0';
 
 export const CHANGELOG = [
+  {
+    version: '1.4.0',
+    date: '2026-04-14',
+    changes: [
+      'Niveles rediseñados: 12 niveles con nombres gamberros',
+      'Curva de XP mucho mas exigente (hasta 16000 XP para Dios de la Cloaca)',
+      'XP variable con bonus: primer opinador, comentario largo, estar ahi, primera del dia, racha',
+      'Racha diaria: opina varios dias seguidos para ganar XP extra',
+      'Editar tu opinion: ya puedes modificar lo que escribiste (sin dar XP por editar)',
+      'Una opinion por usuario y sitio: se acabaron los duplicados',
+      'Cooldown: max 10 opiniones con XP al dia',
+    ],
+  },
   {
     version: '1.3.0',
     date: '2026-04-14',

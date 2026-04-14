@@ -187,6 +187,25 @@ export default function ProfileScreen({ onLogout, onEditProfile }) {
           </View>
         </View>
 
+        {/* Racha diaria */}
+        {(user.currentStreak || 0) > 0 && (
+          <View style={styles.streakCard}>
+            <Text style={styles.streakFire}>🔥</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.streakTitle}>
+                Racha de {user.currentStreak} {user.currentStreak === 1 ? 'dia' : 'dias'}
+              </Text>
+              <Text style={styles.streakSub}>
+                {user.currentStreak >= 7
+                  ? 'Eres imparable! +20 XP en la primera opinion del dia'
+                  : user.currentStreak >= 3
+                  ? '+10 XP en la primera opinion del dia'
+                  : 'Opina cada dia para subir de nivel mas rapido'}
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Member since */}
         <View style={styles.memberSince}>
           <Text style={styles.memberSinceText}>
@@ -484,6 +503,21 @@ const styles = StyleSheet.create({
     color: '#999',
     marginTop: 4,
   },
+  streakCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF3CD',
+    borderWidth: 1.5,
+    borderColor: '#F0C400',
+    borderRadius: 14,
+    padding: 14,
+    marginHorizontal: 20,
+    marginTop: 14,
+    gap: 12,
+  },
+  streakFire: { fontSize: 30 },
+  streakTitle: { fontSize: 15, fontWeight: '800', color: '#7A5D00' },
+  streakSub: { fontSize: 12, color: '#7A5D00', marginTop: 2, lineHeight: 16 },
   memberSince: {
     alignItems: 'center',
     marginTop: 16,
