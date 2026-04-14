@@ -1,9 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import React, { useState, useEffect, useRef } from 'react';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Text, ActivityIndicator, View, TouchableOpacity, StyleSheet } from 'react-native';
 import * as Linking from 'expo-linking';
+import * as Notifications from 'expo-notifications';
+// Import con efecto colateral: registra la TaskManager task de geofence.
+// DEBE ir en el top level del módulo para que el SO la reconozca.
+import './src/tasks/geofenceTask';
+import {
+  requestNotificationPermission,
+  requestBackgroundLocationPermission,
+  markPlaceNotified,
+} from './src/data/notifications';
+import { getPlaceById } from './src/data/store';
+
+const navigationRef = createNavigationContainerRef();
 
 class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { hasError: false }; }
@@ -99,7 +111,41 @@ export default function App() {
       if (url) handleDeepLink(url);
     });
 
-    return () => sub.remove();
+    // Usuario toca una notificación de proximidad: abrimos el detalle del sitio
+    const notifSub = Notifications.addNotificationResponseReceivedListener(async (response) => {
+      try {
+        const data = response?.notification?.request?.content?.data || {};
+        if (data.type !== 'proximity' || !data.placeId) return;
+        await markPlaceNotified(data.placeId);
+        const place = await getPlaceById(data.placeId);
+        if (!place) return;
+        // Esperar a que la navegación esté lista
+        const tryNav = () => {
+          if (navigationRef.isReady()) {
+            navigationRef.navigate('Explorar', {
+              screen: 'PlaceDetail',
+              params: { place },
+            });
+          } else {
+            setTimeout(tryNav, 300);
+          }
+        };
+        tryNav();
+      } catch (e) {
+        console.error('[Appreton] notification tap handler error:', e);
+      }
+    });
+
+    // Pedimos permisos una vez al arrancar (idempotente; si ya están, no molesta)
+    (async () => {
+      await requestNotificationPermission();
+      await requestBackgroundLocationPermission();
+    })();
+
+    return () => {
+      sub.remove();
+      notifSub.remove();
+    };
   }, []);
 
   async function handleDeepLink(url) {
@@ -225,7 +271,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Tab.Navigator
         screenOptions={{
           tabBarStyle: {

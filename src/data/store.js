@@ -74,6 +74,33 @@ async function seedSupabaseIfEmpty() {
   } catch {}
 }
 
+// Busca un place por id en Supabase; si falla, mira en el cache local
+// (places y cache de Google). Devuelve null si no lo encuentra.
+export async function getPlaceById(id) {
+  if (!id) return null;
+  try {
+    const { data, error } = await supabase.from('places').select('*').eq('id', id).maybeSingle();
+    if (!error && data) return rowToPlace(data);
+  } catch {}
+  try {
+    const cached = await storageGet(PLACES_KEY);
+    if (cached) {
+      const arr = JSON.parse(cached);
+      const hit = arr.find((p) => p.id === id);
+      if (hit) return hit;
+    }
+  } catch {}
+  try {
+    const cachedG = await storageGet('@appreton_google_cache');
+    if (cachedG) {
+      const arr = JSON.parse(cachedG);
+      const hit = arr.find((p) => p.id === id);
+      if (hit) return { ...hit, isGoogleOnly: true, avgRating: 0, reviewCount: 0 };
+    }
+  } catch {}
+  return null;
+}
+
 export async function getPlaces() {
   try {
     const { data, error } = await supabase.from('places').select('*');

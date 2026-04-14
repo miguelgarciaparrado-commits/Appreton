@@ -2,7 +2,7 @@
   "expo": {
     "name": "Appreton",
     "slug": "Appreton",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "scheme": "appreton",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -17,6 +17,12 @@
       "bundleIdentifier": "com.appreton.app",
       "config": {
         "googleMapsApiKey": "AIzaSyAGsJx_0fUzJmVDA539E5zo_mDfLBvKRMA"
+      },
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Appreton necesita tu ubicacion para encontrar banos cercanos.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Appreton te avisa cuando estas en un establecimiento para que puedas opinar sobre su WC, aunque la app este cerrada.",
+        "NSLocationAlwaysUsageDescription": "Appreton te avisa cuando estas en un establecimiento para que puedas opinar sobre su WC, aunque la app este cerrada.",
+        "UIBackgroundModes": ["location", "fetch"]
       }
     },
     "android": {
@@ -25,10 +31,15 @@
         "backgroundColor": "#8B6914"
       },
       "package": "com.appreton.app",
-      "versionCode": 3,
+      "versionCode": 4,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "POST_NOTIFICATIONS",
+        "RECEIVE_BOOT_COMPLETED",
         "CAMERA"
       ],
       "config": {
@@ -66,7 +77,19 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Appreton necesita tu ubicacion para encontrar banos cercanos."
+          "locationWhenInUsePermission": "Appreton necesita tu ubicacion para encontrar banos cercanos.",
+          "locationAlwaysAndWhenInUsePermission": "Appreton te avisa cuando estas en un establecimiento para que puedas opinar sobre su WC.",
+          "locationAlwaysPermission": "Appreton te avisa cuando estas en un establecimiento para que puedas opinar sobre su WC.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#8B6914",
+          "defaultChannel": "appreton-proximity"
         }
       ],
       [

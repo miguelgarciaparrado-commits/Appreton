@@ -2,9 +2,20 @@
 // Al hacer cambios: actualizar CURRENT_VERSION y anadir entrada al CHANGELOG
 // Tambien actualizar "version" y "versionCode" en app.json
 
-export const CURRENT_VERSION = '1.2.0';
+export const CURRENT_VERSION = '1.3.0';
 
 export const CHANGELOG = [
+  {
+    version: '1.3.0',
+    date: '2026-04-14',
+    changes: [
+      'Aviso cuando llevas un rato en un establecimiento para que opines',
+      'Notificacion push local si la app esta cerrada',
+      'Banner in-app si la app esta abierta',
+      'Anti-spam: solo un aviso cada 24h por sitio, y solo tras permanecer un rato',
+      'Soporte Android e iOS',
+    ],
+  },
   {
     version: '1.2.0',
     date: '2026-04-14',

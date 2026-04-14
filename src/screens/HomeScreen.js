@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,16 @@ import * as Location from 'expo-location';
 import { getPlaces, getReviews } from '../data/store';
 import { fetchNearbyPlaces } from '../data/googlePlaces';
 import PlaceCard from '../components/PlaceCard';
+import NearbyPrompt from '../components/NearbyPrompt';
+import {
+  cacheGooglePlacesForTask,
+  startGeofencingForPlaces,
+  DWELL_SECONDS,
+  shouldNotifyForPlace,
+  markPlaceNotified,
+} from '../data/notifications';
+
+const PROXIMITY_RADIUS_M = 30; // a qué distancia consideramos "dentro"
 
 const FILTERS = [
   { key: 'todos', label: '🚽 Todos' },
@@ -58,6 +68,20 @@ export default function HomeScreen({ navigation }) {
   const [locationLoading, setLocationLoading] = useState(true);
   const [locationError, setLocationError] = useState(null);
   const [googleLoading, setGoogleLoading] = useState(false);
+  // Dwell detection en foreground:
+  // - nearbyCandidate: sitio al que estamos cerca ahora mismo
+  // - nearbySince: timestamp de cuándo empezamos a estar cerca
+  // - nearbyPlace: sitio ya "confirmado" (pasó el dwell) y mostrando banner
+  // - dismissedIds: sitios que el usuario ha descartado con "Ahora no"
+  const nearbyCandidateRef = useRef(null);
+  const nearbySinceRef = useRef(0);
+  const [nearbyPlace, setNearbyPlace] = useState(null);
+  const nearbyPlaceRef = useRef(null);
+  const dismissedIdsRef = useRef(new Set());
+  const locationSubRef = useRef(null);
+  const filteredRef = useRef([]);
+
+  useEffect(() => { nearbyPlaceRef.current = nearbyPlace; }, [nearbyPlace]);
 
   useFocusEffect(
     useCallback(() => {
@@ -104,6 +128,17 @@ export default function HomeScreen({ navigation }) {
     try {
       const places = await fetchNearbyPlaces(lat, lon, 600);
       setGooglePlaces(places);
+      // Cachea para que la geofence task pueda buscar nombres
+      await cacheGooglePlacesForTask(places);
+      // Registra los 20 más cercanos como regiones de geofence
+      const withDist = places
+        .filter((p) => p.latitude && p.longitude)
+        .map((p) => ({
+          ...p,
+          _d: getDistanceKm(lat, lon, p.latitude, p.longitude),
+        }))
+        .sort((a, b) => a._d - b._d);
+      await startGeofencingForPlaces(withDist);
     } finally {
       setGoogleLoading(false);
     }
@@ -133,6 +168,102 @@ export default function HomeScreen({ navigation }) {
     const stats = reviewsByPlace[p.id];
     if (!stats) return p;
     return { ...p, avgRating: stats.avgRating, reviewCount: stats.reviewCount };
+  }
+
+  // --- Foreground dwell detection (banner in-app) ---
+  // Vigila la ubicación mientras la pantalla está enfocada y, cuando el
+  // usuario lleva DWELL_SECONDS segundos dentro del radio de un sitio,
+  // muestra el NearbyPrompt.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      async function start() {
+        try {
+          if (locationSubRef.current) return;
+          const { status } = await Location.getForegroundPermissionsAsync();
+          if (status !== 'granted') return;
+          locationSubRef.current = await Location.watchPositionAsync(
+            {
+              accuracy: Location.Accuracy.High,
+              distanceInterval: 5,
+              timeInterval: 5000,
+            },
+            (loc) => {
+              if (cancelled) return;
+              evaluateProximity(loc.coords);
+            }
+          );
+        } catch (e) {
+          console.error('[Appreton] watchPosition error:', e);
+        }
+      }
+      start();
+      return () => {
+        cancelled = true;
+        if (locationSubRef.current) {
+          try { locationSubRef.current.remove(); } catch {}
+          locationSubRef.current = null;
+        }
+      };
+    }, [])
+  );
+
+  async function evaluateProximity(coords) {
+    const list = filteredRef.current || [];
+    let best = null;
+    let bestDist = Infinity;
+    for (const p of list) {
+      if (dismissedIdsRef.current.has(p.id)) continue;
+      if (!p.latitude || !p.longitude) continue;
+      const d = getDistanceKm(coords.latitude, coords.longitude, p.latitude, p.longitude) * 1000;
+      if (d <= PROXIMITY_RADIUS_M && d < bestDist) {
+        best = p;
+        bestDist = d;
+      }
+    }
+
+    const currentCandidate = nearbyCandidateRef.current;
+
+    if (!best) {
+      // Salimos de la zona: reseteamos el candidato
+      if (currentCandidate || nearbyPlaceRef.current) {
+        nearbyCandidateRef.current = null;
+        nearbySinceRef.current = 0;
+        setNearbyPlace(null);
+      }
+      return;
+    }
+
+    // Cambiamos de sitio (p.ej. andando entre bares)
+    if (!currentCandidate || currentCandidate.id !== best.id) {
+      nearbyCandidateRef.current = best;
+      nearbySinceRef.current = Date.now();
+      return;
+    }
+
+    // Mismo sitio: comprobamos si ya llevamos el dwell completo
+    if (!nearbyPlaceRef.current && Date.now() - nearbySinceRef.current >= DWELL_SECONDS * 1000) {
+      // Throttle 24h: no insistir con el mismo sitio
+      const canNotify = await shouldNotifyForPlace(best.id);
+      if (canNotify) {
+        setNearbyPlace(best);
+        await markPlaceNotified(best.id);
+      } else {
+        dismissedIdsRef.current.add(best.id);
+      }
+    }
+  }
+
+  function handleNearbyOpinar() {
+    const place = nearbyPlace;
+    setNearbyPlace(null);
+    dismissedIdsRef.current.add(place.id);
+    navigation.navigate('PlaceDetail', { place });
+  }
+
+  function handleNearbyDismiss() {
+    if (nearbyPlace) dismissedIdsRef.current.add(nearbyPlace.id);
+    setNearbyPlace(null);
   }
 
   // Merge Google Places with app places
@@ -176,6 +307,11 @@ export default function HomeScreen({ navigation }) {
       return b.avgRating - a.avgRating;
     });
 
+  // Sincroniza filteredRef para que evaluateProximity vea la última lista
+  useEffect(() => {
+    filteredRef.current = filtered;
+  }, [filtered]);
+
   const isLoading = locationLoading || googleLoading;
 
   return (
@@ -185,6 +321,15 @@ export default function HomeScreen({ navigation }) {
         <Text style={styles.logo}>💩 Appreton</Text>
         <Text style={styles.subtitle}>Te cagas? abreme</Text>
       </View>
+
+      {/* Banner de dwell detection: aparece cuando llevas >DWELL_SECONDS cerca de un sitio */}
+      {nearbyPlace && (
+        <NearbyPrompt
+          place={nearbyPlace}
+          onOpinar={handleNearbyOpinar}
+          onDismiss={handleNearbyDismiss}
+        />
+      )}
 
       {/* Location / Google status */}
       <View style={styles.locationBar}>
