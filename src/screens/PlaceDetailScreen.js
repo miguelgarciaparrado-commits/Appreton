@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   SafeAreaView,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { getReviews, ensurePlaceExists } from '../data/store';
@@ -45,9 +46,15 @@ export default function PlaceDetailScreen({ route, navigation }) {
       setCreating(true);
       try {
         await ensurePlaceExists(place);
-      } finally {
+      } catch (e) {
         setCreating(false);
+        Alert.alert(
+          'No se pudo crear el sitio',
+          e.message || 'Revisa las policies RLS de Supabase y vuelve a intentarlo.',
+        );
+        return;
       }
+      setCreating(false);
     }
     navigation.navigate('AddReview', { place });
   }

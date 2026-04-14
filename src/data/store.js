@@ -124,20 +124,17 @@ export async function getReviews(placeId) {
 export async function ensurePlaceExists(place) {
   const id = place.id; // ya tiene el prefijo g_ si viene de Google
 
-  // Comprobar si ya existe en Supabase
-  try {
-    const { data } = await supabase.from('places').select('id').eq('id', id).single();
-    if (data) return; // ya existe
-  } catch {}
+  // Comprobar si ya existe en Supabase (maybeSingle no tira si no hay fila)
+  const { data: existing, error: selectError } = await supabase
+    .from('places').select('id').eq('id', id).maybeSingle();
+  if (selectError) {
+    console.error('[Appreton] ensurePlaceExists select error:', selectError);
+  }
+  if (existing) return; // ya existe
 
-  // Comprobar caché local
-  try {
-    const cached = await storageGet(PLACES_KEY);
-    const places = cached ? JSON.parse(cached) : [];
-    if (places.find((p) => p.id === id)) return;
-  } catch {}
-
-  // Crear el lugar
+  // No miramos el caché local para decidir si hace falta crear en Supabase:
+  // el sitio DEBE estar en Supabase para que la FK de reviews no falle.
+  // Crear el lugar en Supabase
   await addPlace({ ...place, id });
 }
 
@@ -149,19 +146,28 @@ export async function addPlace(place) {
     reviewCount: 0,
   };
 
-  try {
-    await supabase.from('places').insert({
-      id: newPlace.id, name: newPlace.name, type: newPlace.type,
-      address: newPlace.address, latitude: newPlace.latitude,
-      longitude: newPlace.longitude, avg_rating: 0, review_count: 0,
-    });
-  } catch {}
+  const { error } = await supabase.from('places').insert({
+    id: newPlace.id, name: newPlace.name, type: newPlace.type,
+    address: newPlace.address, latitude: newPlace.latitude,
+    longitude: newPlace.longitude, avg_rating: 0, review_count: 0,
+  });
 
+  if (error) {
+    console.error('[Appreton] addPlace error:', error);
+    // Si es una violación de unique (ya existe), lo tratamos como éxito
+    if (error.code !== '23505') {
+      throw new Error(`No se pudo guardar el sitio: ${error.message}`);
+    }
+  }
+
+  // También cachear localmente para lectura offline
   try {
     const cached = await storageGet(PLACES_KEY);
     const places = cached ? JSON.parse(cached) : [];
-    places.push(newPlace);
-    await storageSet(PLACES_KEY, JSON.stringify(places));
+    if (!places.find((p) => p.id === newPlace.id)) {
+      places.push(newPlace);
+      await storageSet(PLACES_KEY, JSON.stringify(places));
+    }
   } catch {}
 
   return newPlace;
@@ -176,26 +182,37 @@ export async function addReview(review) {
     userId: currentUser ? currentUser.id : null,
   };
 
-  try {
-    await supabase.from('reviews').insert({
-      id: newReview.id, place_id: newReview.placeId, user_id: newReview.userId,
-      rating: newReview.rating, comment: newReview.comment,
-      has_paper: newReview.hasPaper, has_soap: newReview.hasSoap,
-      has_brush: newReview.hasBrush, required_order: newReview.requiredOrder ?? null,
-      extras: newReview.extras || [], date: newReview.date,
-    });
+  const { error: insertError } = await supabase.from('reviews').insert({
+    id: newReview.id, place_id: newReview.placeId, user_id: newReview.userId,
+    rating: newReview.rating, comment: newReview.comment,
+    has_paper: newReview.hasPaper, has_soap: newReview.hasSoap,
+    has_brush: newReview.hasBrush, required_order: newReview.requiredOrder ?? null,
+    extras: newReview.extras || [], date: newReview.date,
+  });
 
-    const { data: allReviews } = await supabase
-      .from('reviews').select('rating').eq('place_id', newReview.placeId);
-    if (allReviews && allReviews.length > 0) {
-      const avg = allReviews.reduce((s, r) => s + r.rating, 0) / allReviews.length;
-      await supabase.from('places').update({
-        avg_rating: Math.round(avg * 10) / 10,
-        review_count: allReviews.length,
-      }).eq('id', newReview.placeId);
+  if (insertError) {
+    console.error('[Appreton] addReview insert error:', insertError);
+    throw new Error(`No se pudo guardar la opinion: ${insertError.message}`);
+  }
+
+  // Actualizar avg_rating y review_count en places
+  const { data: allReviews, error: selectErr } = await supabase
+    .from('reviews').select('rating').eq('place_id', newReview.placeId);
+  if (selectErr) {
+    console.error('[Appreton] addReview select error:', selectErr);
+  }
+  if (allReviews && allReviews.length > 0) {
+    const avg = allReviews.reduce((s, r) => s + r.rating, 0) / allReviews.length;
+    const { error: updErr } = await supabase.from('places').update({
+      avg_rating: Math.round(avg * 10) / 10,
+      review_count: allReviews.length,
+    }).eq('id', newReview.placeId);
+    if (updErr) {
+      console.error('[Appreton] addReview update places error:', updErr);
     }
-  } catch {}
+  }
 
+  // Escribir en caché local (fallback para lecturas offline)
   try {
     const cached = await storageGet(REVIEWS_KEY);
     const reviews = cached ? JSON.parse(cached) : [];
