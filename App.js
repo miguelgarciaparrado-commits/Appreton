@@ -45,8 +45,9 @@ import AppretoneroRankingScreen from './src/screens/AppretoneroRankingScreen';
 import MapScreen from './src/screens/MapScreen';
 import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 import { getCurrentUser, logout } from './src/data/auth';
-import { storageGet, storageRemove } from './src/data/storage';
+import { storageGet, storageSet, storageRemove } from './src/data/storage';
 import { supabase } from './src/data/supabase';
+import { CURRENT_VERSION } from './src/version';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -128,6 +129,8 @@ export default function App() {
     try {
       // Migración: limpiar datos incompatibles de versiones antiguas
       await migrateOldData();
+      // Migración por versión: borra caches de places/reviews al actualizar
+      await migrateCacheVersion();
 
       const currentUser = await getCurrentUser();
       if (!currentUser) {
@@ -157,6 +160,20 @@ export default function App() {
         await storageRemove('@appreton_all_users');
         await storageRemove('@appreton_users_data');
       }
+    } catch {}
+  }
+
+  // Borra los caches de places y reviews cuando cambia la version de la app.
+  // Asi, tras una actualizacion, el usuario arranca con caches limpios y los
+  // repobla desde Supabase en la siguiente carga (evita tener que desinstalar
+  // para limpiar datos obsoletos del AsyncStorage).
+  async function migrateCacheVersion() {
+    try {
+      const stored = await storageGet('@appreton_cache_version');
+      if (stored === CURRENT_VERSION) return;
+      await storageRemove('@appreton_places');
+      await storageRemove('@appreton_reviews');
+      await storageSet('@appreton_cache_version', CURRENT_VERSION);
     } catch {}
   }
 

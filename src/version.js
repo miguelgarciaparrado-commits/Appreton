@@ -2,9 +2,20 @@
 // Al hacer cambios: actualizar CURRENT_VERSION y anadir entrada al CHANGELOG
 // Tambien actualizar "version" y "versionCode" en app.json
 
-export const CURRENT_VERSION = '1.1.0';
+export const CURRENT_VERSION = '1.2.0';
 
 export const CHANGELOG = [
+  {
+    version: '1.2.0',
+    date: '2026-04-14',
+    changes: [
+      'Arreglado: opiniones no llegaban a Supabase por schema uuid vs text',
+      'Arreglado: opiniones duplicadas al hacer doble tap en Enviar',
+      'Arreglado: media real en las tarjetas de Explorar',
+      'Los errores de guardado ya no se silencian',
+      'Migracion automatica de cache al actualizar la app',
+    ],
+  },
   {
     version: '1.1.0',
     date: '2026-04-08',
