@@ -1,7 +1,46 @@
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
+import { Platform } from 'react-native';
 import { storageGet, storageSet, storageRemove } from './storage';
 import { supabase } from './supabase';
+import { GOOGLE_WEB_CLIENT_ID } from '../config';
+
+// Carga perezosa de la libreria nativa: solo se importa en Android/iOS.
+// Asi el bundle de web no revienta si no esta disponible.
+let _googleSignin = null;
+function getGoogleSignin() {
+  if (_googleSignin) return _googleSignin;
+  try {
+    const mod = require('@react-native-google-signin/google-signin');
+    _googleSignin = {
+      GoogleSignin: mod.GoogleSignin,
+      statusCodes: mod.statusCodes,
+      configured: false,
+    };
+  } catch (e) {
+    console.error('[Appreton] Google Sign-In module not available', e);
+    return null;
+  }
+  return _googleSignin;
+}
+
+// Configura GoogleSignin con el webClientId. Idempotente.
+function ensureGoogleSigninConfigured() {
+  const g = getGoogleSignin();
+  if (!g) return false;
+  if (g.configured) return true;
+  try {
+    g.GoogleSignin.configure({
+      webClientId: GOOGLE_WEB_CLIENT_ID,
+      offlineAccess: false,
+    });
+    g.configured = true;
+    return true;
+  } catch (e) {
+    console.error('[Appreton] GoogleSignin.configure error', e);
+    return false;
+  }
+}
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -336,6 +375,122 @@ async function getUserData(userId) {
   } catch {
     return null;
   }
+}
+
+// Login con Google nativo (no abre navegador: usa el selector de cuentas
+// del sistema Android/iOS). Requiere @react-native-google-signin/google-signin.
+// En el selector aparecera "Iniciar sesion en Appreton" con el nombre y logo
+// configurados en Google Cloud → Auth Platform → Informacion de marca.
+export async function loginWithGoogleNative() {
+  const g = getGoogleSignin();
+  if (!g) {
+    throw new Error('Google Sign-In nativo no disponible en esta plataforma');
+  }
+  if (!ensureGoogleSigninConfigured()) {
+    throw new Error('No se pudo configurar Google Sign-In');
+  }
+
+  try {
+    await g.GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+  } catch (e) {
+    throw new Error('Google Play Services no disponible');
+  }
+
+  // Flujo nativo: abre el selector de cuentas del SO y devuelve un id_token
+  let signInResult;
+  try {
+    signInResult = await g.GoogleSignin.signIn();
+  } catch (e) {
+    // cancelado por el usuario → devolver un error reconocible
+    const code = e?.code;
+    if (code === g.statusCodes?.SIGN_IN_CANCELLED || code === '-5') {
+      throw new Error('Inicio de sesion cancelado');
+    }
+    if (code === g.statusCodes?.IN_PROGRESS) {
+      throw new Error('Ya hay un inicio de sesion en curso');
+    }
+    if (code === g.statusCodes?.PLAY_SERVICES_NOT_AVAILABLE) {
+      throw new Error('Google Play Services no disponible');
+    }
+    throw new Error(e?.message || 'No se pudo iniciar sesion con Google');
+  }
+
+  // La respuesta de signIn() en v13+ usa { data: { idToken, user } }.
+  // En versiones viejas era { idToken, user } directamente.
+  const idToken = signInResult?.data?.idToken || signInResult?.idToken;
+  const googleUser = signInResult?.data?.user || signInResult?.user;
+  if (!idToken) {
+    throw new Error('Google no devolvio id_token');
+  }
+
+  // Canjear id_token por una sesion de Supabase
+  const { data: sbData, error: sbErr } = await supabase.auth.signInWithIdToken({
+    provider: 'google',
+    token: idToken,
+  });
+  if (sbErr) {
+    console.error('[Appreton] signInWithIdToken error', sbErr);
+    throw new Error(sbErr.message || 'Supabase rechazo el token de Google');
+  }
+
+  const authUser = sbData?.user;
+  if (!authUser) {
+    throw new Error('No se obtuvo el usuario de Supabase');
+  }
+
+  // Reutiliza el perfil existente si lo hay, si no crea uno nuevo
+  let user = null;
+  try {
+    const { data: supabaseProfile } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('id', authUser.id)
+      .single();
+
+    if (supabaseProfile) {
+      user = {
+        id: supabaseProfile.id,
+        displayName: supabaseProfile.display_name || '',
+        email: supabaseProfile.email || authUser.email || '',
+        provider: supabaseProfile.provider || 'google',
+        avatarType: supabaseProfile.avatar_type || 'poop_1',
+        customAvatarUri: supabaseProfile.custom_avatar_uri || null,
+        level: supabaseProfile.level || 1,
+        xp: supabaseProfile.xp || 0,
+        totalReviews: supabaseProfile.total_reviews || 0,
+        joinDate: supabaseProfile.join_date || new Date().toISOString().split('T')[0],
+        profileCompleted: supabaseProfile.profile_completed || false,
+        lastReviewDate: supabaseProfile.last_review_date || null,
+        currentStreak: supabaseProfile.current_streak || 0,
+        gender: supabaseProfile.gender || null,
+      };
+    }
+  } catch {}
+
+  if (!user) {
+    user = {
+      id: authUser.id,
+      displayName:
+        googleUser?.name ||
+        authUser.user_metadata?.full_name ||
+        authUser.email?.split('@')[0] ||
+        '',
+      email: authUser.email || googleUser?.email || '',
+      provider: 'google',
+      avatarType: 'poop_1',
+      customAvatarUri: null,
+      level: 1,
+      xp: 0,
+      totalReviews: 0,
+      joinDate: new Date().toISOString().split('T')[0],
+      profileCompleted: false,
+    };
+  }
+
+  await storageSet(AUTH_USER_KEY, JSON.stringify(user));
+  await saveUserData(authUser.id, user);
+  await addOrUpdateUserInList(user);
+  return user;
 }
 
 // Providers supported by Supabase OAuth

@@ -13,7 +13,14 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import { register, loginWithEmail, loginWithProvider, forgotPassword } from '../data/auth';
+// Platform ya importado arriba, solo lo uso en handleProvider.
+import {
+  register,
+  loginWithEmail,
+  loginWithProvider,
+  loginWithGoogleNative,
+  forgotPassword,
+} from '../data/auth';
 
 const PROVIDERS = [
   { key: 'google', label: 'Continuar con Google', color: '#DB4437', icon: '🌐' },
@@ -32,7 +39,30 @@ export default function LoginScreen({ onLogin }) {
     setLoading(true);
     setError('');
     try {
-      const user = await loginWithProvider(providerKey);
+      let user;
+      if (providerKey === 'google' && Platform.OS !== 'web') {
+        // Flujo nativo: selector de cuentas del SO → id_token → Supabase.
+        // Muestra "Iniciar sesion en Appreton" en vez de "Ir a supabase.co".
+        try {
+          user = await loginWithGoogleNative();
+        } catch (e) {
+          const msg = e?.message || '';
+          // Si el modulo nativo no esta disponible (expo go, emulador sin
+          // Google Play Services) caemos al flujo web como fallback.
+          if (
+            msg.includes('no disponible') ||
+            msg.includes('not available') ||
+            msg.includes('Play Services')
+          ) {
+            console.warn('[Appreton] Native Google Sign-In not available, falling back to web', msg);
+            user = await loginWithProvider('google');
+          } else {
+            throw e;
+          }
+        }
+      } else {
+        user = await loginWithProvider(providerKey);
+      }
       onLogin(user);
     } catch (e) {
       const msg = e.message || '';

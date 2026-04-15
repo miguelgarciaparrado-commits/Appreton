@@ -2,9 +2,19 @@
 // Al hacer cambios: actualizar CURRENT_VERSION y anadir entrada al CHANGELOG
 // Tambien actualizar "version" y "versionCode" en app.json
 
-export const CURRENT_VERSION = '1.4.0';
+export const CURRENT_VERSION = '1.5.0';
 
 export const CHANGELOG = [
+  {
+    version: '1.5.0',
+    date: '2026-04-14',
+    changes: [
+      'Login con Google nativo: aparece "Iniciar sesion en Appreton"',
+      'Se acabo el "Ir a xxxxx.supabase.co" del navegador',
+      'Email al admin cuando alguien sugiere un sitio',
+      'Logo oficial de la app actualizado',
+    ],
+  },
   {
     version: '1.4.0',
     date: '2026-04-14',

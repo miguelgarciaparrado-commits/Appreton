@@ -29,3 +29,18 @@ export const SUBMISSION_WEBHOOK_URL = '';
 // payload como metadato para que puedas filtrar en el servicio si
 // usas varios formularios. No se usa como destinatario directo.
 export const SUBMISSION_NOTIFY_EMAIL = '';
+
+// ─────────────────────────────────────────────────
+// Google Sign-In nativo
+//
+// Web Client ID del OAuth 2.0 de Google Cloud (tipo "Aplicacion web").
+// Es el mismo que tienes pegado en Supabase → Authentication →
+// Providers → Google → Client ID. Sirve para que Supabase valide
+// el id_token que genera el login nativo de Android.
+//
+// NO es el Client ID del cliente Android: Google pide el WEB aqui
+// porque GoogleSignin.signIn() pide un id_token firmado con ese
+// audience, y Supabase valida contra ese audience.
+// ─────────────────────────────────────────────────
+export const GOOGLE_WEB_CLIENT_ID =
+  '1012059070308-51rbls8jgeh88qlqnjfv448utmvjj71l.apps.googleusercontent.com';
