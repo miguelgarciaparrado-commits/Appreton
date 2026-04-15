@@ -15,15 +15,23 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.appreton.app",
+      "buildNumber": "7",
       "config": {
         "googleMapsApiKey": "AIzaSyAGsJx_0fUzJmVDA539E5zo_mDfLBvKRMA"
       },
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Appreton necesita tu ubicacion para encontrar banos cercanos.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Appreton te avisa cuando estas en un establecimiento para que puedas opinar sobre su WC, aunque la app este cerrada.",
-        "NSLocationAlwaysUsageDescription": "Appreton te avisa cuando estas en un establecimiento para que puedas opinar sobre su WC, aunque la app este cerrada.",
-        "UIBackgroundModes": ["location", "fetch"]
-      }
+        "NSLocationWhenInUseUsageDescription": "Appreton necesita tu ubicación para encontrar WCs cercanos.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Appreton te avisa cuando estás en un establecimiento para que puedas opinar sobre su WC, aunque la app esté cerrada.",
+        "NSLocationAlwaysUsageDescription": "Appreton te avisa cuando estás en un establecimiento para que puedas opinar sobre su WC, aunque la app esté cerrada.",
+        "NSCameraUsageDescription": "Appreton necesita acceso a la cámara para que puedas tomar fotos de tu avatar.",
+        "NSPhotoLibraryUsageDescription": "Appreton necesita acceso a tus fotos para elegir una imagen de avatar.",
+        "NSPhotoLibraryAddUsageDescription": "Appreton puede guardar imágenes generadas en tu galería.",
+        "NSUserNotificationsUsageDescription": "Appreton te envía avisos cuando estás cerca de un WC que puedas valorar.",
+        "UIBackgroundModes": ["location", "fetch", "processing"],
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleAllowMixedLocalizations": true
+      },
+      "associatedDomains": []
     },
     "android": {
       "adaptiveIcon": {
@@ -71,16 +79,17 @@
             "ndkVersion": "27.1.12297006"
           },
           "ios": {
-            "deploymentTarget": "15.1"
+            "deploymentTarget": "15.1",
+            "useFrameworks": "static"
           }
         }
       ],
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Appreton necesita tu ubicacion para encontrar banos cercanos.",
-          "locationAlwaysAndWhenInUsePermission": "Appreton te avisa cuando estas en un establecimiento para que puedas opinar sobre su WC.",
-          "locationAlwaysPermission": "Appreton te avisa cuando estas en un establecimiento para que puedas opinar sobre su WC.",
+          "locationWhenInUsePermission": "Appreton necesita tu ubicación para encontrar WCs cercanos.",
+          "locationAlwaysAndWhenInUsePermission": "Appreton te avisa cuando estás en un establecimiento para que puedas opinar sobre su WC.",
+          "locationAlwaysPermission": "Appreton te avisa cuando estás en un establecimiento para que puedas opinar sobre su WC.",
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
         }
@@ -102,8 +111,9 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Appreton necesita acceso a tus fotos para subir imagenes de los banos.",
-          "cameraPermission": "Appreton necesita acceso a la camara para tomar fotos de los banos."
+          "photosPermission": "Appreton necesita acceso a tus fotos para elegir una imagen de avatar.",
+          "cameraPermission": "Appreton necesita acceso a la cámara para que puedas tomar fotos de tu avatar.",
+          "microphonePermission": false
         }
       ]
     ]

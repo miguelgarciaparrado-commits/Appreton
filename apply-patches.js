@@ -1,12 +1,22 @@
 /**
  * Diagnóstico y parches definitivos
- * Ejecutar desde C:\Users\PC\Appreton con: node apply-patches.js
+ * Ejecutar desde la raíz del proyecto con: node apply-patches.js
+ *
+ * TODOS los parches de este script son específicos para Android.
+ * En iOS / macOS los archivos a parchear no existen, así que el script
+ * termina sin hacer nada (no rompe el build iOS).
  */
 const fs = require('fs');
 const path = require('path');
 
 // ── Parche 1: ExpoModulesCorePlugin.gradle ────────────────────────────────
 const pluginPath = path.join(__dirname, 'node_modules', 'expo-modules-core', 'android', 'ExpoModulesCorePlugin.gradle');
+
+if (!fs.existsSync(pluginPath)) {
+  console.log('[--] node_modules/expo-modules-core/android no existe (build iOS o dependencias no instaladas). Nada que parchear.');
+  process.exit(0);
+}
+
 let content = fs.readFileSync(pluginPath, 'utf8').replace(/\r\n/g, '\n');
 
 // Asegurarse de que compileSdkVersion 35 está hardcodeado
@@ -85,10 +95,13 @@ fs.writeFileSync(pluginPath, content);
 // Reemplazar completamente las llamadas a funciones expo con implementación directa
 // porque applyKotlinExpoModulesCorePlugin() falla silenciosamente para expo-font
 const expoFontPath = path.join(__dirname, 'node_modules', 'expo-font', 'android', 'build.gradle');
-let fontContent = fs.readFileSync(expoFontPath, 'utf8').replace(/\r\n/g, '\n');
+if (!fs.existsSync(expoFontPath)) {
+  console.log('[--] node_modules/expo-font/android no existe, saltando parche expo-font');
+} else {
+  const fontContent = fs.readFileSync(expoFontPath, 'utf8').replace(/\r\n/g, '\n');
 
-if (!fontContent.includes('EXPO_FONT_PATCHED')) {
-  const newFontContent = `// EXPO_FONT_PATCHED
+  if (!fontContent.includes('EXPO_FONT_PATCHED')) {
+    const newFontContent = `// EXPO_FONT_PATCHED
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
@@ -118,10 +131,11 @@ dependencies {
   implementation 'com.facebook.react:react-android'
 }
 `;
-  fs.writeFileSync(expoFontPath, newFontContent);
-  console.log('[OK] expo-font/android/build.gradle - reemplazado con configuración directa');
-} else {
-  console.log('[--] expo-font/android/build.gradle - ya parcheado');
+    fs.writeFileSync(expoFontPath, newFontContent);
+    console.log('[OK] expo-font/android/build.gradle - reemplazado con configuración directa');
+  } else {
+    console.log('[--] expo-font/android/build.gradle - ya parcheado');
+  }
 }
 
 console.log('\nEjecuta:');

@@ -128,7 +128,7 @@ a9d24c5 feat: Migracion de cache por version
    alter table reviews add column if not exists likes int default 0;
    ```
 
-## Requisitos del local para que el build salga bien
+## Requisitos del local para que el build salga bien (Android)
 
 - `android/local.properties` con `sdk.dir=C:\Users\PC\AppData\Local\Android\Sdk`
   **SIN trailing space** (usar PowerShell, no `echo`).
@@ -141,6 +141,116 @@ a9d24c5 feat: Migracion de cache por version
 - Matar `adb.exe` y `java.exe` antes de `rmdir /s /q android`.
 - Compilar con `gradlew clean assembleRelease -x lintVitalAnalyzeRelease
   -x lintVitalRelease` (el `-x lint` evita el problema de Metaspace).
+
+---
+
+## Compilacion para iOS (futuro)
+
+El proyecto ya esta preparado para compilar para iOS. La compilacion
+en si requiere un Mac con Xcode instalado (Apple no permite compilar
+apps iOS desde Windows/Linux nativamente). Dos caminos:
+
+### Opcion A — Compilar en un Mac local
+
+En un Mac con Xcode 15+, Node 18+, y CocoaPods instalado:
+
+```bash
+cd Appreton
+npm install
+npx expo prebuild --platform ios --clean
+cd ios
+pod install
+cd ..
+npx expo run:ios --configuration Release
+```
+
+Requisitos adicionales:
+- **Apple Developer Account** ($99/año) para compilar y firmar
+  APPs que se puedan instalar en dispositivos reales. Sin la cuenta
+  solo puedes probar en el simulador.
+- **Provisioning profile** y **signing certificate** configurados
+  en Xcode (con la cuenta Developer).
+
+### Opcion B — EAS Build (se compila en la nube de Expo)
+
+La forma mas facil sin necesidad de Mac:
+
+```bash
+npm install -g eas-cli
+eas login
+eas build --platform ios --profile preview
+```
+
+EAS compila en sus servidores Mac, te devuelve un `.ipa` que puedes
+instalar en dispositivos via TestFlight o Apple Configurator.
+
+Tambien necesitas una cuenta Apple Developer para firmar — aunque
+EAS puede gestionar certificados automaticamente con `eas credentials`.
+
+### Configuracion ya preparada en el repo
+
+- `app.json` tiene la seccion `ios`:
+  - `bundleIdentifier: "com.appreton.app"`
+  - `buildNumber: "7"` (equivalente al versionCode de Android)
+  - `NSLocationWhenInUseUsageDescription` y `NSLocationAlwaysAndWhenInUseUsageDescription`
+    con acentos correctos.
+  - `NSCameraUsageDescription` y `NSPhotoLibraryUsageDescription`
+    para el picker de avatar.
+  - `UIBackgroundModes: [location, fetch, processing]` para el
+    geofencing en background.
+  - `ITSAppUsesNonExemptEncryption: false` para saltar el tramite
+    de exportacion de criptografia de Apple.
+- `expo-build-properties` plugin con `ios.deploymentTarget: "15.1"`
+  y `useFrameworks: "static"` — lo segundo es obligatorio para que
+  `@react-native-google-signin/google-signin` v13 enlace bien con
+  CocoaPods.
+- `@react-native-google-signin/google-signin` plugin con
+  `iosUrlScheme` ya configurado.
+- `eas.json` con los tres perfiles (`development`, `preview`,
+  `production`) listos para iOS.
+
+### Lo que hay que hacer en Apple / Google Cloud para iOS
+
+1. **Apple Developer Portal** (cuando tengas la cuenta):
+   - Register App ID: `com.appreton.app`
+   - Habilita capabilities: Push Notifications, Maps, Background Modes
+     (Location updates, Background fetch).
+   - Crea un provisioning profile Development y otro Distribution.
+
+2. **Google Cloud → Auth Platform → Clientes**:
+   - Crear un nuevo **OAuth Client iOS** con `com.appreton.app`
+     como Bundle ID. Google te dara un Client ID tipo
+     `1012059070308-xxxxx.apps.googleusercontent.com`.
+   - El `iosUrlScheme` que tenemos en `app.json` sigue siendo el del
+     Web Client ID (GoogleSignin.configure acepta el WebClientId
+     tanto en Android como iOS). Pero Google necesita ver el cliente
+     iOS registrado para que Apple no rechace el login.
+
+3. **Google Maps API Key iOS**:
+   - En Google Cloud → Credentials, edita la API Key actual de
+     Google Maps y añade un **bundle restriction** para
+     `com.appreton.app` (para iOS) ademas del paquete Android.
+   - O crea una API Key separada solo para iOS.
+
+4. **Supabase**: no hay que tocar nada — la configuracion de Google
+   provider ya vale para ambas plataformas.
+
+### Posibles ajustes especificos iOS cuando llegues a compilar
+
+- `MapView` con `PROVIDER_GOOGLE` requiere Google Maps SDK iOS —
+  cocoapods lo instala automaticamente con el plugin de react-native-maps.
+- `expo-notifications` con notificaciones locales (las que usamos)
+  funciona en iOS sin APNs. Si en el futuro quieres enviar push
+  remoto necesitaras configurar APNs en Apple Developer Portal.
+- `expo-task-manager` con geofencing funciona en iOS pero requiere
+  permiso de ubicacion "Always" que el usuario debe conceder
+  explicitamente. El flujo de permiso lo gestiona `expo-location`.
+- Las notificaciones en iOS usan el icono de la app automaticamente —
+  no se usa el `notification-icon.png` monocromo (ese es solo
+  Android).
+- **Fingerprint de firma**: en iOS no existe el concepto de SHA-1
+  para OAuth — Apple usa bundle ID + Team ID. No hay que
+  preocuparse por el keystore.
 
 ## Bugs resueltos
 
