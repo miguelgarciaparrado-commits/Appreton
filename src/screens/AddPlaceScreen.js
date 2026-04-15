@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import * as Location from 'expo-location';
 import { addPlace } from '../data/store';
+import { notifyNewSuggestion } from '../data/notifySuggestion';
 
 const PLACE_TYPES = [
   { key: 'bar', label: '🍺 Bar / Cafeteria', color: '#E67E22' },
@@ -109,13 +110,18 @@ export default function AddPlaceScreen({ navigation }) {
       return;
     }
 
-    await addPlace({
+    const placeData = {
       name: name.trim(),
       address: address.trim(),
       type,
       latitude: coords ? coords.latitude : 40.4168,
       longitude: coords ? coords.longitude : -3.7038,
-    });
+    };
+
+    const savedPlace = await addPlace(placeData);
+
+    // Envia notificacion por email al admin (silencioso si falla)
+    notifyNewSuggestion(savedPlace || placeData);
 
     setName('');
     setAddress('');
