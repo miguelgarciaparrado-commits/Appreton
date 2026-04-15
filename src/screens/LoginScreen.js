@@ -67,7 +67,7 @@ export default function LoginScreen({ onLogin }) {
     } catch (e) {
       const msg = e.message || '';
       if (!msg.includes('cancelado') && !msg.includes('cancel')) {
-        setError(msg || 'No se pudo iniciar sesion');
+        setError(msg || 'No se pudo iniciar sesión');
       }
     } finally {
       setLoading(false);
@@ -102,11 +102,11 @@ export default function LoginScreen({ onLogin }) {
       return;
     }
     if (password.length < 6) {
-      setError('La contrasena debe tener al menos 6 caracteres');
+      setError('La contraseña debe tener al menos 6 caracteres');
       return;
     }
     if (mode === 'register' && password !== confirmPassword) {
-      setError('Las contrasenas no coinciden');
+      setError('Las contraseñas no coinciden');
       return;
     }
     setLoading(true);
@@ -117,7 +117,7 @@ export default function LoginScreen({ onLogin }) {
           : await loginWithEmail(email, password);
       onLogin(user);
     } catch (e) {
-      setError(e.message || 'Error al iniciar sesion');
+      setError(e.message || 'Error al iniciar sesión');
     } finally {
       setLoading(false);
     }
@@ -176,8 +176,15 @@ export default function LoginScreen({ onLogin }) {
                 onPress={() => { setMode('register'); setError(''); }}
               >
                 <Text style={styles.registerLinkText}>
-                  ¿No tienes cuenta? <Text style={styles.registerLinkBold}>Registrate</Text>
+                  ¿No tienes cuenta? <Text style={styles.registerLinkBold}>Regístrate</Text>
                 </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.forgotBtn}
+                onPress={() => { setMode('forgot'); setError(''); setForgotSent(false); }}
+              >
+                <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
               </TouchableOpacity>
 
               {loading && <ActivityIndicator color="#8B6914" style={{ marginTop: 16 }} />}
@@ -192,7 +199,7 @@ export default function LoginScreen({ onLogin }) {
               </TouchableOpacity>
 
               <Text style={styles.cardTitle}>
-                {mode === 'login' ? 'Iniciar sesion' : 'Crear cuenta'}
+                {mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
               </Text>
 
               <Text style={styles.label}>Email</Text>
@@ -207,10 +214,10 @@ export default function LoginScreen({ onLogin }) {
                 autoCorrect={false}
               />
 
-              <Text style={styles.label}>Contrasena</Text>
+              <Text style={styles.label}>Contraseña</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Minimo 6 caracteres"
+                placeholder="Mínimo 6 caracteres"
                 placeholderTextColor="#BBB"
                 value={password}
                 onChangeText={setPassword}
@@ -219,10 +226,10 @@ export default function LoginScreen({ onLogin }) {
 
               {mode === 'register' && (
                 <>
-                  <Text style={styles.label}>Confirmar contrasena</Text>
+                  <Text style={styles.label}>Confirmar contraseña</Text>
                   <TextInput
                     style={styles.input}
-                    placeholder="Repite la contrasena"
+                    placeholder="Repite la contraseña"
                     placeholderTextColor="#BBB"
                     value={confirmPassword}
                     onChangeText={setConfirmPassword}
@@ -253,7 +260,7 @@ export default function LoginScreen({ onLogin }) {
                   style={styles.forgotBtn}
                   onPress={() => { setMode('forgot'); setError(''); setForgotSent(false); }}
                 >
-                  <Text style={styles.forgotText}>Olvide mi password</Text>
+                  <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
                 </TouchableOpacity>
               )}
 
@@ -269,7 +276,7 @@ export default function LoginScreen({ onLogin }) {
                 <Text style={styles.switchText}>
                   {mode === 'login' ? '¿No tienes cuenta? ' : '¿Ya tienes cuenta? '}
                   <Text style={styles.switchLink}>
-                    {mode === 'login' ? 'Registrate' : 'Inicia sesion'}
+                    {mode === 'login' ? 'Regístrate' : 'Inicia sesión'}
                   </Text>
                 </Text>
               </TouchableOpacity>
@@ -282,14 +289,14 @@ export default function LoginScreen({ onLogin }) {
                 <Text style={styles.backText}>← Volver</Text>
               </TouchableOpacity>
 
-              <Text style={styles.cardTitle}>Recuperar password</Text>
+              <Text style={styles.cardTitle}>Recuperar contraseña</Text>
 
               {forgotSent ? (
                 <View style={styles.sentBox}>
                   <Text style={styles.sentIcon}>📧</Text>
                   <Text style={styles.sentTitle}>Email enviado</Text>
                   <Text style={styles.sentText}>
-                    Revisa tu bandeja de entrada y sigue el enlace para restablecer tu contrasena.
+                    Revisa tu bandeja de entrada y sigue el enlace para restablecer tu contraseña.
                   </Text>
                   <TouchableOpacity
                     style={styles.submitBtn}
@@ -301,7 +308,7 @@ export default function LoginScreen({ onLogin }) {
               ) : (
                 <>
                   <Text style={styles.forgotDesc}>
-                    Introduce tu email y te enviaremos un enlace para restablecer tu contrasena.
+                    Introduce tu email y te enviaremos un enlace para restablecer tu contraseña.
                   </Text>
                   <Text style={styles.label}>Email</Text>
                   <TextInput
