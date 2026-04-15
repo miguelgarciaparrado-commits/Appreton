@@ -17,15 +17,36 @@ despues por un bug en `android/local.properties` con un espacio final.
 
 ## Version en desarrollo
 
-**1.4.0** (versionCode 5) — revamp de niveles y XP, fix avatar desde
-camara, notificaciones de cercania, migracion de cache por version.
-Todo committeado, falta compilar correctamente.
+**1.6.0** (versionCode 7) — en curso. Añade:
+- Mini-juego **Cagatrivia** como nueva pestaña en el TabBar.
+- Botón ❤️ de "me gusta" en cada opinion de los sitios.
+- Columna `likes` en la tabla `reviews` de Supabase.
+
+Versiones anteriores committeadas pero nunca llegaron a instalarse
+por problemas de build:
+- 1.5.0 (versionCode 6) — Google Sign-In nativo, logo oficial,
+  webhook email para sugerencias.
+- 1.4.0 (versionCode 5) — revamp niveles/XP, fix avatar camara,
+  notificaciones de cercania, migracion de cache.
+- 1.3.0 (versionCode 4) — notificaciones geofence.
+- 1.2.0 (versionCode 3) — migracion de cache por version.
+
+Cuando el APK compile bien, saltara directamente a 1.6.0 incluyendo
+todas las features acumuladas desde 1.1.0.
 
 ---
 
 ## Commit history reciente
 
 ```
+[pendiente] feat: Cagatrivia + me gusta en opiniones (1.6.0)
+64468cf feat: Login con Google nativo (adios supabase.co del prompt)
+ab827ab feat: Email al admin cuando alguien sugiere un sitio
+9529a6f feat: Usa el logo APPreton como icono oficial de la app
+7b9b74d assets: Logo icono principal con caca + APPreton (sin slogan)
+d00ebae assets: Logo APPreton solo texto (sin emoji de caca)
+8d7c69c assets: Logo APPRETON en PNG 1024 y 512
+7b6e029 docs: Logo APPRETON en SVG + actualiza estado en md
 00e13bd fix: Inyecta ext.ndkVersion en el root android/build.gradle
 489e79f fix: Inyecta ndkVersion 27.1.12297006 en ExpoModulesCorePlugin
 ea78c57 fix: apply-patches.js sustituye NDK 26 por 27 en node_modules
@@ -266,26 +287,24 @@ config plugin `patch-expo-modules.js`. Todos los modulos expo leen
 
 ## Pendiente / futuro
 
-- **Login nativo con Google Sign-In de Android** (OAuth Android) para que
-  Google muestre "Iniciar sesion en Appreton" en vez de "Ir a
-  xxxxx.supabase.co". Requiere:
-  1. SHA-1 del keystore (`keytool -list -v -keystore "C:\Users\PC\.android\debug.keystore" -alias androiddebugkey -storepass android -keypass android`).
-  2. Google Cloud Console: OAuth consent screen con nombre "Appreton",
-     y crear DOS OAuth clients: uno Android (con package `com.appreton.app`
-     y SHA-1) y uno Web (JS origins + redirect a
-     `https://gcperiixkrrqoydfmned.supabase.co/auth/v1/callback`).
-  3. Supabase: pegar Web Client ID/Secret en Authentication → Providers
-     → Google, y el Web Client ID en Authorized Client IDs para la
-     validacion del id_token.
-  4. Instalar `@react-native-google-signin/google-signin`, añadir plugin
-     a app.json, configurar `GoogleSignin.configure({ webClientId })`.
-  5. Cambiar LoginScreen de `supabase.auth.signInWithOAuth` a:
-     `const { idToken } = await GoogleSignin.signIn()` →
-     `supabase.auth.signInWithIdToken({ provider: 'google', token: idToken })`.
+- **Panel de administracion web separado** (Next.js) para moderar
+  reviews, aprobar sitios sugeridos, ver estadisticas. Aparcado
+  hasta que se publique la app. Stack propuesto: Next.js + Tailwind +
+  @supabase/supabase-js + tabla `admins` con whitelist de emails.
+- **Publicacion en Play Store**: requiere keystore release (no el
+  debug actual), configurar firma en `android/app/build.gradle` o
+  `eas.json`, crear cuenta en Play Console ($25 one-time), listing,
+  AAB (`gradlew bundleRelease`), upload. En espera — el usuario NO
+  quiere publicar todavia.
+- **Mini-juego "Toca la Caca"** (`src/screens/GameScreen.js`) está
+  en el repo pero sin boton que lo abra (se retiro temporalmente
+  en c4e8baf). Sustituido por Cagatrivia.
 - Badges / logros adicionales a los niveles (descubriste 5 bares,
   racha de 7 dias, etc.).
 - Pantalla de historial de opiniones propias en Perfil.
 - Moderacion de opiniones (reportar, ocultar).
 - i18n (Espanol / Ingles).
-- Logo oficial de la app (pendiente de crear — propuesta en
-  `assets/logo-appreton.svg`).
+- **Tamagotchi de caca** — mascota virtual vinculada al streak.
+  Idea aparcada, implementable cuando haya mas usuarios activos.
+- **Swipe de opiniones ajenas** — idea descartada a favor del
+  simple boton ❤️ de me gusta en el detalle del sitio.
