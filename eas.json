@@ -10,6 +10,9 @@
       "android": {
         "buildType": "apk",
         "image": "default"
+      },
+      "ios": {
+        "simulator": true
       }
     },
     "preview": {
@@ -17,13 +20,17 @@
       "android": {
         "buildType": "apk",
         "image": "default"
+      },
+      "ios": {
+        "simulator": false
       }
     },
     "production": {
       "android": {
         "buildType": "app-bundle",
         "image": "default"
-      }
+      },
+      "ios": {}
     }
   },
   "submit": {
@@ -31,6 +38,11 @@
       "android": {
         "serviceAccountKeyPath": "./google-play-key.json",
         "track": "production"
+      },
+      "ios": {
+        "appleId": "",
+        "ascAppId": "",
+        "appleTeamId": ""
       }
     }
   }

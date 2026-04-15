@@ -13,7 +13,17 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.appreton.app"
+      "bundleIdentifier": "com.appreton.app",
+      "buildNumber": "1",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Appreton necesita tu ubicacion para encontrar banos cercanos.",
+        "NSCameraUsageDescription": "Appreton necesita acceso a la camara para tomar fotos de los banos.",
+        "NSPhotoLibraryUsageDescription": "Appreton necesita acceso a tus fotos para subir imagenes de los banos.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -46,6 +56,9 @@
             "buildToolsVersion": "35.0.0",
             "kotlinVersion": "1.9.25",
             "minSdkVersion": 24
+          },
+          "ios": {
+            "deploymentTarget": "15.1"
           }
         }
       ],
