@@ -10,36 +10,84 @@ retomar la conversación si hay que recuperar contexto.
 
 ## Ultima version publicada en APK
 
-Ninguna reciente. El APK instalado en el movil del dev es 1.1.0
-(versionCode 2) porque los ultimos builds no han llegado a generar
-un APK nuevo — primero por problemas con la licencia del NDK y
-despues por un bug en `android/local.properties` con un espacio final.
+Ninguna reciente. El APK instalado en el movil del dev sigue siendo 1.1.0
+(versionCode 2). Los builds posteriores han acumulado features pero
+ningun build ha llegado a generar un APK nuevo completado — primero
+por problemas con la licencia del NDK, despues por el trailing space
+en `android/local.properties`, y en paralelo por el cache obsoleto
+de la carpeta `android/`.
 
 ## Version en desarrollo
 
-**1.6.0** (versionCode 7) — en curso. Añade:
-- Mini-juego **Cagatrivia** como nueva pestaña en el TabBar.
-- Botón ❤️ de "me gusta" en cada opinion de los sitios.
-- Columna `likes` en la tabla `reviews` de Supabase.
+**1.6.0** (versionCode 7) — en curso. Commiteado en el repo, pendiente
+de que termine la compilacion que el dev tiene en marcha ahora mismo.
 
-Versiones anteriores committeadas pero nunca llegaron a instalarse
-por problemas de build:
-- 1.5.0 (versionCode 6) — Google Sign-In nativo, logo oficial,
-  webhook email para sugerencias.
-- 1.4.0 (versionCode 5) — revamp niveles/XP, fix avatar camara,
-  notificaciones de cercania, migracion de cache.
-- 1.3.0 (versionCode 4) — notificaciones geofence.
-- 1.2.0 (versionCode 3) — migracion de cache por version.
+Acumula todos los fixes y features desde la 1.1.0:
 
-Cuando el APK compile bien, saltara directamente a 1.6.0 incluyendo
-todas las features acumuladas desde 1.1.0.
+### Features principales
+- **Cagatrivia** (nueva pestaña del TabBar): mini-juego de trivia con 30
+  preguntas sobre cultura escatologica, records absurdos y curiosidades
+  del WC. 10 preguntas aleatorias por partida, high score persistido.
+- **Me gusta en opiniones**: boton ❤️ en cada review del detalle del
+  sitio, con contador y prevencion de likes duplicados por dispositivo.
+  Nueva columna `likes` en la tabla `reviews`.
+- **Login con Google nativo**: sustituye el flujo web OAuth de Supabase
+  por Google Sign-In nativo. Google muestra "Iniciar sesion en Appreton"
+  en vez de "Ir a xxxxx.supabase.co". Fallback al flujo web si la
+  libreria nativa no esta disponible.
+- **Notificaciones de cercania con dwell detection** (Android + iOS):
+  geofencing background con 20 regiones, aviso tras 2 min dentro del
+  radio, throttle 24h por sitio. Banner foreground equivalente en
+  Explorar.
+- **Mapa mejorado**: markers custom con emoji del tipo + badge con el
+  rating numerico y color (verde/naranja/rojo/gris) para ver de un
+  vistazo los mejores WCs. Contador real filtrado a 600m del usuario.
+- **Migracion automatica de cache** al cambiar de version: al arrancar
+  la app, si detecta que el CURRENT_VERSION cambio, borra los caches
+  de places y reviews para evitar arrastre de datos obsoletos.
+- **Sistema de niveles y XP** (revamp 1.4.0): 12 niveles con nombres
+  gamberros (Estrenido → Dios de la Cloaca), XP variable con bonuses
+  (primer opinador, comentario detallado, GPS on-site, primera del dia,
+  racha). Anti-farmeo con constraint unique(user_id, place_id).
+- **Editar opinion propia** sin duplicar: si ya opinaste un sitio, el
+  boton "Opinar" cambia a "Editar" y se precarga el formulario. Los
+  edits no dan XP.
+- **Perfil con badge de racha** 🔥 cuando llevas varios dias seguidos
+  opinando.
+- **Email al admin** cuando un usuario sugiere un sitio (feature flag
+  via SUBMISSION_WEBHOOK_URL en config.js — sin activar por defecto).
+
+### Branding
+- **Logo oficial** de la app: caca cute con APPreton debajo, en
+  assets/icon.png, splash-icon.png, adaptive-icon.png, favicon.png.
+- **Icono de notificacion** monocromatico (silueta de caca sonriente)
+  en assets/notification-icon.png — Android muestra la cacita en el
+  status bar en vez de un circulo blanco.
+
+### Fixes historicos incluidos
+- Opiniones duplicadas por doble-tap (flag submitting).
+- Rating 0.0 en Explorar (calculo en cliente desde reviews reales).
+- Errores de Supabase silenciados (supabase-js no lanza en errores de
+  BD, ahora los comprobamos explicitamente).
+- Schema Supabase uuid vs text recreado correctamente.
+- Fix del NDK 26 → 27 via ext.ndkVersion en root build.gradle + parches
+  a ExpoModulesCorePlugin.gradle y los plugins patch-expo-modules.js y
+  apply-patches.js. Con esto el NDK 27 (que ya esta instalado y sin
+  problemas de licencia) se usa globalmente.
+
+### Cuando el build se complete
+El usuario habra saltado directamente de 1.1.0 a 1.6.0, incluyendo
+todos los commits de 1.2.0, 1.3.0, 1.4.0 y 1.5.0 en un unico APK.
 
 ---
 
 ## Commit history reciente
 
 ```
-[pendiente] feat: Cagatrivia + me gusta en opiniones (1.6.0)
+23c1021 fix: Icono de notificacion real (cacita silueta) en status bar
+d964445 fix(map): contador real + markers con rating visible
+68459d2 feat: Cagatrivia + boton me gusta en opiniones (1.6.0)
+55c739d docs: Actualiza .md con estado 1.6.0 en curso
 64468cf feat: Login con Google nativo (adios supabase.co del prompt)
 ab827ab feat: Email al admin cuando alguien sugiere un sitio
 9529a6f feat: Usa el logo APPreton como icono oficial de la app
@@ -59,6 +107,40 @@ a9d24c5 feat: Migracion de cache por version
 4eeb5aa fix: Deja de tragarse los errores de Supabase al escribir
 03e1392 fix: Evita opiniones duplicadas y muestra media real en Explorar
 ```
+
+## Requisitos fuera del repo antes de compilar
+
+1. **Google Cloud → Auth Platform → Clientes**: dos clientes creados:
+   - OAuth Web: `1012059070308-51rbls8jgeh88qlqnjfv448utmvjj71l.apps.googleusercontent.com`
+     con JS origin y redirect URI a `gcperiixkrrqoydfmned.supabase.co`.
+   - OAuth Android: package `com.appreton.app` + SHA-1
+     `5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25`
+     (del debug keystore estandar de Android Studio).
+2. **Google Cloud → Informacion de marca**: App name = "Appreton".
+3. **Google Cloud → Publico**: email de test user añadido.
+4. **Supabase → Authentication → Providers → Google**:
+   - Client ID pegado.
+   - Client Secret pegado.
+   - **Skip nonce checks** activado (obligatorio para el flujo nativo).
+   - Authorized Client IDs con el mismo Web Client ID.
+5. **Supabase → SQL Editor**, ejecutar:
+   ```sql
+   alter table reviews add column if not exists likes int default 0;
+   ```
+
+## Requisitos del local para que el build salga bien
+
+- `android/local.properties` con `sdk.dir=C:\Users\PC\AppData\Local\Android\Sdk`
+  **SIN trailing space** (usar PowerShell, no `echo`).
+- Tras cada cambio en `app.json`, regenerar `android/` con
+  `expo prebuild --platform android --clean` (el prompt de uncommited
+  changes se responde con `y`, no con Enter).
+- Ejecutar `node apply-patches.js` despues del prebuild para inyectar
+  `ext.ndkVersion = "27.1.12297006"` en `android/build.gradle` y
+  hardcodear compileSdkVersion 35 en ExpoModulesCorePlugin.gradle.
+- Matar `adb.exe` y `java.exe` antes de `rmdir /s /q android`.
+- Compilar con `gradlew clean assembleRelease -x lintVitalAnalyzeRelease
+  -x lintVitalRelease` (el `-x lint` evita el problema de Metaspace).
 
 ## Bugs resueltos
 
