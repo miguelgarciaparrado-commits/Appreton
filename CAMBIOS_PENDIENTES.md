@@ -10,14 +10,34 @@ retomar la conversación si hay que recuperar contexto.
 
 ## Ultima version publicada en APK
 
-**1.3.0** (versionCode 4) — notificaciones de cercania Android+iOS.
+Ninguna reciente. El APK instalado en el movil del dev es 1.1.0
+(versionCode 2) porque los ultimos builds no han llegado a generar
+un APK nuevo — primero por problemas con la licencia del NDK y
+despues por un bug en `android/local.properties` con un espacio final.
 
-## Version en desarrollo (en commit actual, sin compilar aun)
+## Version en desarrollo
 
-**1.4.0** (versionCode 5) — revamp de niveles y XP (en curso, pendiente de
-commit).
+**1.4.0** (versionCode 5) — revamp de niveles y XP, fix avatar desde
+camara, notificaciones de cercania, migracion de cache por version.
+Todo committeado, falta compilar correctamente.
 
 ---
+
+## Commit history reciente
+
+```
+00e13bd fix: Inyecta ext.ndkVersion en el root android/build.gradle
+489e79f fix: Inyecta ndkVersion 27.1.12297006 en ExpoModulesCorePlugin
+ea78c57 fix: apply-patches.js sustituye NDK 26 por 27 en node_modules
+ac06120 fix: Usa NDK 27.1.12297006 en vez de 26.1.10909125
+0f0b1b7 fix: Avatar desde camara no aparecia
+cd8b852 feat: Revamp de niveles, XP y anti-farmeo (1.4.0)
+28d7da2 docs: Actualiza CAMBIOS_PENDIENTES.md con estado actual
+a9d24c5 feat: Migracion de cache por version
+68ecbf7 feat: Notificaciones de cercania (Android + iOS)
+4eeb5aa fix: Deja de tragarse los errores de Supabase al escribir
+03e1392 fix: Evita opiniones duplicadas y muestra media real en Explorar
+```
 
 ## Bugs resueltos
 
@@ -221,14 +241,51 @@ Y añadir entrada al `CHANGELOG` en `src/version.js`.
 
 ---
 
+## Problemas abiertos (en curso)
+
+### 1) Build con trailing space en local.properties
+El comando `echo sdk.dir=... > android\local.properties` en CMD mete
+un ESPACIO antes del `>` en el archivo. Gradle lee el path como
+`C:\...\Sdk ` (con espacio) y al concatenar `\licenses` busca en
+`Sdk \licenses` — path invalido — por eso da "License not accepted"
+aunque las licencias esten bien.
+
+**Fix**: reescribir `local.properties` con PowerShell SIN trailing
+space:
+```
+powershell -NoProfile -Command "[System.IO.File]::WriteAllText('C:\Users\PC\Appreton\android\local.properties', 'sdk.dir=C:\\Users\\PC\\AppData\\Local\\Android\\Sdk' + [char]10)"
+```
+
+### 2) NDK 26 vs 27
+Cambio de NDK 26.1.10909125 a 27.1.12297006 via `ext.ndkVersion` en
+root `android/build.gradle`. Ya esta en `apply-patches.js` y en el
+config plugin `patch-expo-modules.js`. Todos los modulos expo leen
+`rootProject.ext.ndkVersion` y lo usan automaticamente.
+
+---
+
 ## Pendiente / futuro
 
-- Login nativo con Google Sign-In de Android (OAuth Android) para que
+- **Login nativo con Google Sign-In de Android** (OAuth Android) para que
   Google muestre "Iniciar sesion en Appreton" en vez de "Ir a
-  xxxxx.supabase.co". Requiere client ID de tipo Android, SHA-1 del
-  keystore, y tocar LoginScreen.
+  xxxxx.supabase.co". Requiere:
+  1. SHA-1 del keystore (`keytool -list -v -keystore "C:\Users\PC\.android\debug.keystore" -alias androiddebugkey -storepass android -keypass android`).
+  2. Google Cloud Console: OAuth consent screen con nombre "Appreton",
+     y crear DOS OAuth clients: uno Android (con package `com.appreton.app`
+     y SHA-1) y uno Web (JS origins + redirect a
+     `https://gcperiixkrrqoydfmned.supabase.co/auth/v1/callback`).
+  3. Supabase: pegar Web Client ID/Secret en Authentication → Providers
+     → Google, y el Web Client ID en Authorized Client IDs para la
+     validacion del id_token.
+  4. Instalar `@react-native-google-signin/google-signin`, añadir plugin
+     a app.json, configurar `GoogleSignin.configure({ webClientId })`.
+  5. Cambiar LoginScreen de `supabase.auth.signInWithOAuth` a:
+     `const { idToken } = await GoogleSignin.signIn()` →
+     `supabase.auth.signInWithIdToken({ provider: 'google', token: idToken })`.
 - Badges / logros adicionales a los niveles (descubriste 5 bares,
   racha de 7 dias, etc.).
 - Pantalla de historial de opiniones propias en Perfil.
 - Moderacion de opiniones (reportar, ocultar).
 - i18n (Espanol / Ingles).
+- Logo oficial de la app (pendiente de crear — propuesta en
+  `assets/logo-appreton.svg`).

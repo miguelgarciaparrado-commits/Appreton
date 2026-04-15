@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300" width="1200" height="300">
+  <title>Appreton wordmark</title>
+
+  <!-- Fondo transparente: solo el texto y el icono -->
+
+  <!-- Icono de caca pequeno a la izquierda del texto -->
+  <g transform="translate(150, 150)">
+    <ellipse cx="0" cy="50" rx="80" ry="32" fill="#8B6914"/>
+    <ellipse cx="-6" cy="10" rx="66" ry="28" fill="#8B6914"/>
+    <ellipse cx="4" cy="-20" rx="46" ry="22" fill="#8B6914"/>
+    <circle cx="12" cy="-38" r="20" fill="#8B6914"/>
+    <!-- Ojos -->
+    <circle cx="-22" cy="2" r="9" fill="#FFFFFF"/>
+    <circle cx="22" cy="2" r="9" fill="#FFFFFF"/>
+    <circle cx="-22" cy="2" r="5" fill="#1A1A1A"/>
+    <circle cx="22" cy="2" r="5" fill="#1A1A1A"/>
+    <!-- Sonrisa -->
+    <path d="M -20 28 Q 0 44 20 28" stroke="#1A1A1A" stroke-width="4" stroke-linecap="round" fill="none"/>
+  </g>
+
+  <!-- Texto APPRETON -->
+  <text x="260" y="195"
+        font-family="'Impact', 'Arial Black', sans-serif"
+        font-weight="900"
+        font-size="170"
+        letter-spacing="6"
+        fill="#8B6914">APPRETON</text>
+</svg>
