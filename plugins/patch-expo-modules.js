@@ -18,7 +18,7 @@ function withProjectExtVersions(config) {
 
     // Ensure top-level ext properties exist (safeExtGet reads from rootProject.ext)
     if (!contents.includes('ext.compileSdkVersion = 35')) {
-      const extLines = `\next.compileSdkVersion = 35\next.targetSdkVersion = 34\next.minSdkVersion = 24\n\n`;
+      const extLines = `\next.compileSdkVersion = 35\next.targetSdkVersion = 34\next.minSdkVersion = 24\next.ndkVersion = "27.1.12297006"\n\n`;
       // Insert before allprojects{} if present, otherwise append
       const insertBefore = /allprojects\s*\{/;
       if (insertBefore.test(contents)) {
@@ -31,7 +31,14 @@ function withProjectExtVersions(config) {
       } else {
         contents += extLines;
       }
-      console.log('[patch-expo-modules] Added ext.compileSdkVersion to android/build.gradle');
+      console.log('[patch-expo-modules] Added ext.compileSdkVersion + ndkVersion to android/build.gradle');
+    } else if (!contents.includes('ext.ndkVersion')) {
+      // Ya tenia compileSdkVersion pero no ndkVersion — inyectarlo justo despues
+      contents = contents.replace(
+        /ext\.compileSdkVersion\s*=\s*35/,
+        'ext.compileSdkVersion = 35\next.ndkVersion = "27.1.12297006"'
+      );
+      console.log('[patch-expo-modules] Added ext.ndkVersion to android/build.gradle');
     }
 
     mod.modResults.contents = contents;

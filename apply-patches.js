@@ -163,3 +163,28 @@ for (const pkg of ['expo-modules-autolinking', 'expo-modules-core', 'expo', 'rea
 }
 
 console.log(`[NDK] ${ndkReplaced} archivos .gradle modificados (${OLD_NDK} -> ${NEW_NDK})`);
+
+// ── Parche 4: inyectar ext.ndkVersion en android/build.gradle (root) ─────
+// expo-modules-core lee rootProject.ext.ndkVersion si esta definido.
+// Definiendolo aqui lo heredan todos los modulos expo automaticamente.
+const rootGradlePath = path.join(__dirname, 'android', 'build.gradle');
+if (fs.existsSync(rootGradlePath)) {
+  let rootGradle = fs.readFileSync(rootGradlePath, 'utf8');
+  if (rootGradle.includes('ext.ndkVersion = "27.1.12297006"')) {
+    console.log('[--] android/build.gradle - ya tiene ext.ndkVersion 27');
+  } else if (/ext\.compileSdkVersion\s*=\s*35/.test(rootGradle)) {
+    rootGradle = rootGradle.replace(
+      /ext\.compileSdkVersion\s*=\s*35/,
+      'ext.compileSdkVersion = 35\next.ndkVersion = "27.1.12297006"'
+    );
+    fs.writeFileSync(rootGradlePath, rootGradle);
+    console.log('[OK] android/build.gradle - ext.ndkVersion 27 inyectado tras ext.compileSdkVersion');
+  } else {
+    // Fallback: aniadir al final del archivo
+    rootGradle += '\next.ndkVersion = "27.1.12297006"\n';
+    fs.writeFileSync(rootGradlePath, rootGradle);
+    console.log('[OK] android/build.gradle - ext.ndkVersion 27 aniadido al final');
+  }
+} else {
+  console.log('[WARN] android/build.gradle no existe aun (ejecuta despues de prebuild)');
+}
