@@ -20,6 +20,24 @@ if (!content.includes('compileSdkVersion 35')) {
   console.log('[--] ExpoModulesCorePlugin.gradle - ya tiene compileSdkVersion 35');
 }
 
+// Inyectar ndkVersion en el project.android del helper useDefaultAndroidSdkVersions.
+// Todos los modulos expo pasan por aqui, asi que con una sola linea sobrescriben
+// el default del Android Gradle Plugin (26.1.10909125) que da problemas de
+// licencia. Usamos la 27 que ya esta instalada.
+if (!content.includes('ndkVersion "27.1.12297006"')) {
+  const beforeCompileSdk = /project\.android\s*\{\s*\n(\s*)compileSdkVersion/;
+  if (beforeCompileSdk.test(content)) {
+    content = content.replace(beforeCompileSdk, (m, indent) => {
+      return `project.android {\n${indent}ndkVersion "27.1.12297006"\n${indent}compileSdkVersion`;
+    });
+    console.log('[OK] ExpoModulesCorePlugin.gradle - ndkVersion 27.1.12297006 inyectado');
+  } else {
+    console.log('[WARN] ExpoModulesCorePlugin.gradle - no se encontro project.android { compileSdkVersion, ndkVersion no inyectado');
+  }
+} else {
+  console.log('[--] ExpoModulesCorePlugin.gradle - ya tiene ndkVersion 27');
+}
+
 // Asegurarse de que components.release está parcheado
 if (content.includes('from components.release')) {
   content = content.replace('from components.release', 'from project.components.findByName("release")');

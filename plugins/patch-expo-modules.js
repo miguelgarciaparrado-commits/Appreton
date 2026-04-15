@@ -91,6 +91,7 @@ function withPatchedExpoModulesCore(config) {
     }
   } catch (ignored) {}
   project.android {
+    ndkVersion "27.1.12297006"
     compileSdkVersion compileSdk
 
     defaultConfig {
