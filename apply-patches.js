@@ -109,3 +109,39 @@ dependencies {
 console.log('\nEjecuta:');
 console.log('  cd android');
 console.log('  .\\gradlew assembleDebug 2>&1 | findstr /i "EXPO_PATCH error failure compileSdk"');
+
+// ── Parche 3: NDK 26.1.10909125 → 27.1.12297006 ──────────────────────────
+// expo-modules-autolinking y otros modulos expo exigen NDK 26, cuya licencia
+// da problemas. La 27 ya la tenemos instalada. Sustituimos en cualquier
+// .gradle de node_modules/expo-* / react-native* que mencione la 26.
+const OLD_NDK = '26.1.10909125';
+const NEW_NDK = '27.1.12297006';
+let ndkReplaced = 0;
+
+function walkAndPatch(dir) {
+  if (!fs.existsSync(dir)) return;
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  for (const e of entries) {
+    const full = path.join(dir, e.name);
+    if (e.isDirectory()) {
+      // Evita ir a node_modules anidados para no tardar mucho
+      if (e.name === 'node_modules') continue;
+      walkAndPatch(full);
+    } else if (e.isFile() && (e.name.endsWith('.gradle') || e.name.endsWith('.gradle.kts'))) {
+      try {
+        const c = fs.readFileSync(full, 'utf8');
+        if (c.includes(OLD_NDK)) {
+          fs.writeFileSync(full, c.split(OLD_NDK).join(NEW_NDK));
+          console.log('[OK] NDK reemplazado en ' + path.relative(__dirname, full));
+          ndkReplaced++;
+        }
+      } catch {}
+    }
+  }
+}
+
+for (const pkg of ['expo-modules-autolinking', 'expo-modules-core', 'expo', 'react-native', 'expo-build-properties']) {
+  walkAndPatch(path.join(__dirname, 'node_modules', pkg));
+}
+
+console.log(`[NDK] ${ndkReplaced} archivos .gradle modificados (${OLD_NDK} -> ${NEW_NDK})`);
