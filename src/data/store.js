@@ -54,6 +54,7 @@ function rowToReview(row) {
     requiredOrder: row.required_order,
     extras: row.extras || [],
     date: row.date,
+    likes: row.likes || 0,
   };
 }
 
@@ -204,6 +205,66 @@ export async function addPlace(place) {
   } catch {}
 
   return newPlace;
+}
+
+// Da "me gusta" a una opinion concreta. Incrementa el contador en Supabase
+// y guarda en AsyncStorage que el usuario ya le dio like a esta review (para
+// evitar que el mismo dispositivo puntue el mismo mensaje varias veces).
+// Devuelve el nuevo valor de likes.
+const LIKED_REVIEWS_KEY = '@appreton_liked_reviews';
+
+export async function hasLikedReview(reviewId) {
+  try {
+    const raw = await storageGet(LIKED_REVIEWS_KEY);
+    const map = raw ? JSON.parse(raw) : {};
+    return !!map[reviewId];
+  } catch {
+    return false;
+  }
+}
+
+export async function getLikedReviewsMap() {
+  try {
+    const raw = await storageGet(LIKED_REVIEWS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+export async function likeReview(reviewId) {
+  // Evita duplicar desde el mismo dispositivo
+  if (await hasLikedReview(reviewId)) {
+    // Devuelve el valor actual leyendo de Supabase
+    const { data } = await supabase.from('reviews').select('likes').eq('id', reviewId).maybeSingle();
+    return data?.likes ?? 0;
+  }
+
+  // Lee el contador actual e incrementa
+  const { data: row, error: selErr } = await supabase
+    .from('reviews').select('likes').eq('id', reviewId).maybeSingle();
+  if (selErr) {
+    console.error('[Appreton] likeReview select error:', selErr);
+    throw new Error(selErr.message);
+  }
+
+  const current = row?.likes || 0;
+  const next = current + 1;
+  const { error: updErr } = await supabase
+    .from('reviews').update({ likes: next }).eq('id', reviewId);
+  if (updErr) {
+    console.error('[Appreton] likeReview update error:', updErr);
+    throw new Error(updErr.message);
+  }
+
+  // Marcar como liked en AsyncStorage
+  try {
+    const map = await getLikedReviewsMap();
+    map[reviewId] = Date.now();
+    await storageSet(LIKED_REVIEWS_KEY, JSON.stringify(map));
+  } catch {}
+
+  return next;
 }
 
 // Busca la opinion del usuario actual para un sitio concreto (si existe).

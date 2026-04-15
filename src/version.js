@@ -2,9 +2,18 @@
 // Al hacer cambios: actualizar CURRENT_VERSION y anadir entrada al CHANGELOG
 // Tambien actualizar "version" y "versionCode" en app.json
 
-export const CURRENT_VERSION = '1.5.0';
+export const CURRENT_VERSION = '1.6.0';
 
 export const CHANGELOG = [
+  {
+    version: '1.6.0',
+    date: '2026-04-15',
+    changes: [
+      'Nuevo juego Cagatrivia: 30 preguntas absurdas sobre WCs y caca',
+      'Boton "me gusta" ❤️ en cada opinion de los sitios',
+      'Cagatrivia como pestaña nueva en el menu inferior',
+    ],
+  },
   {
     version: '1.5.0',
     date: '2026-04-14',

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Appreton",
     "slug": "Appreton",
-    "version": "1.5.0",
+    "version": "1.6.0",
     "scheme": "appreton",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -31,7 +31,7 @@
         "backgroundColor": "#8B6914"
       },
       "package": "com.appreton.app",
-      "versionCode": 6,
+      "versionCode": 7,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",

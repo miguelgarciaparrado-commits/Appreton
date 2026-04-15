@@ -56,6 +56,7 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import AppretoneroRankingScreen from './src/screens/AppretoneroRankingScreen';
 import MapScreen from './src/screens/MapScreen';
 import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
+import CagatriviaScreen from './src/screens/CagatriviaScreen';
 import { getCurrentUser, logout } from './src/data/auth';
 import { storageGet, storageSet, storageRemove } from './src/data/storage';
 import { supabase } from './src/data/supabase';
@@ -311,6 +312,15 @@ export default function App() {
           options={{
             title: 'Sugerir sitio',
             tabBarIcon: ({ focused }) => <TabIcon emoji={'\u2795'} focused={focused} />,
+          }}
+        />
+        <Tab.Screen
+          name="Cagatrivia"
+          component={CagatriviaScreen}
+          options={{
+            headerShown: false,
+            tabBarLabel: 'Cagatrivia',
+            tabBarIcon: ({ focused }) => <TabIcon emoji={'\uD83E\uDDE0'} focused={focused} />,
           }}
         />
         <Tab.Screen

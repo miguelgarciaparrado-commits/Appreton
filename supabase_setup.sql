@@ -29,8 +29,13 @@ create table if not exists reviews (
   required_order boolean,
   extras text[] default '{}',
   date text,
+  likes int default 0,
   created_at timestamp with time zone default now()
 );
+
+-- Migracion para instalaciones existentes (idempotente)
+alter table reviews
+  add column if not exists likes int default 0;
 
 -- Una opinion por usuario y sitio (los usuarios anonimos con user_id NULL
 -- pueden tener varias porque Postgres trata NULL como distinto en unique).

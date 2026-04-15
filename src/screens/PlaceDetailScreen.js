@@ -10,7 +10,13 @@ import {
   Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { getReviews, ensurePlaceExists, getUserReviewForPlace } from '../data/store';
+import {
+  getReviews,
+  ensurePlaceExists,
+  getUserReviewForPlace,
+  likeReview,
+  getLikedReviewsMap,
+} from '../data/store';
 import PoopRating from '../components/PoopRating';
 import AmenitiesBadges from '../components/AmenitiesBadges';
 
@@ -27,11 +33,13 @@ export default function PlaceDetailScreen({ route, navigation }) {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [userHasReview, setUserHasReview] = useState(false);
+  const [likedMap, setLikedMap] = useState({}); // { reviewId: timestamp }
 
   useFocusEffect(
     useCallback(() => {
       loadReviews();
       checkUserReview();
+      loadLikedMap();
     }, [])
   );
 
@@ -40,6 +48,40 @@ export default function PlaceDetailScreen({ route, navigation }) {
     const data = await getReviews(place.id);
     setReviews(data.sort((a, b) => new Date(b.date) - new Date(a.date)));
     setLoading(false);
+  }
+
+  async function loadLikedMap() {
+    try {
+      const map = await getLikedReviewsMap();
+      setLikedMap(map);
+    } catch {}
+  }
+
+  async function handleLike(reviewId) {
+    // Actualizacion optimista: marca como liked y +1 al contador en la lista
+    if (likedMap[reviewId]) return;
+    setLikedMap((m) => ({ ...m, [reviewId]: Date.now() }));
+    setReviews((list) =>
+      list.map((r) =>
+        r.id === reviewId ? { ...r, likes: (r.likes || 0) + 1 } : r
+      )
+    );
+    try {
+      await likeReview(reviewId);
+    } catch (e) {
+      // Revertir si falla
+      setLikedMap((m) => {
+        const cp = { ...m };
+        delete cp[reviewId];
+        return cp;
+      });
+      setReviews((list) =>
+        list.map((r) =>
+          r.id === reviewId ? { ...r, likes: Math.max(0, (r.likes || 1) - 1) } : r
+        )
+      );
+      console.error('[Appreton] like error', e);
+    }
   }
 
   async function checkUserReview() {
@@ -164,16 +206,35 @@ export default function PlaceDetailScreen({ route, navigation }) {
     </View>
   );
 
-  const renderReview = ({ item }) => (
-    <View style={styles.reviewCard}>
-      <View style={styles.reviewTop}>
-        <PoopRating rating={item.rating} size={18} readonly />
-        <Text style={styles.reviewDate}>{item.date}</Text>
+  const renderReview = ({ item }) => {
+    const isLiked = !!likedMap[item.id];
+    const likeCount = item.likes || 0;
+    return (
+      <View style={styles.reviewCard}>
+        <View style={styles.reviewTop}>
+          <PoopRating rating={item.rating} size={18} readonly />
+          <Text style={styles.reviewDate}>{item.date}</Text>
+        </View>
+        <Text style={styles.reviewComment}>{item.comment}</Text>
+        <AmenitiesBadges review={item} />
+        <View style={styles.reviewFooter}>
+          <TouchableOpacity
+            style={[styles.likeBtn, isLiked && styles.likeBtnActive]}
+            onPress={() => handleLike(item.id)}
+            disabled={isLiked}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.likeIcon, isLiked && styles.likeIconActive]}>
+              {isLiked ? '❤️' : '🤍'}
+            </Text>
+            <Text style={[styles.likeCount, isLiked && styles.likeCountActive]}>
+              {likeCount}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
-      <Text style={styles.reviewComment}>{item.comment}</Text>
-      <AmenitiesBadges review={item} />
-    </View>
-  );
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -306,4 +367,28 @@ const styles = StyleSheet.create({
   reviewTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   reviewDate: { fontSize: 12, color: '#999' },
   reviewComment: { fontSize: 14, color: '#2C3E50', marginTop: 8, lineHeight: 20 },
+  reviewFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  likeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#F8F8F8',
+    gap: 6,
+  },
+  likeBtnActive: {
+    backgroundColor: '#FDEDEC',
+  },
+  likeIcon: { fontSize: 16 },
+  likeIconActive: {},
+  likeCount: { fontSize: 13, color: '#888', fontWeight: '700' },
+  likeCountActive: { color: '#E74C3C' },
 });
