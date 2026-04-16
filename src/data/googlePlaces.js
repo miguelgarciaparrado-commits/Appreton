@@ -18,10 +18,7 @@ const TYPES_FOOD_DRINK = [
 const TYPES_OTHER = [
   'gas_station',
   'shopping_mall',
-  'supermarket',
   'department_store',
-  'movie_theater',
-  'gym',
 ];
 
 function mapGoogleTypeToAppType(primaryType) {
@@ -29,7 +26,7 @@ function mapGoogleTypeToAppType(primaryType) {
   if (['restaurant', 'meal_delivery', 'meal_takeaway', 'cafeteria', 'food_court', 'fast_food_restaurant', 'pizza_restaurant', 'hamburger_restaurant', 'seafood_restaurant', 'steak_house', 'sushi_restaurant', 'indian_restaurant', 'chinese_restaurant', 'mexican_restaurant', 'american_restaurant', 'italian_restaurant', 'japanese_restaurant'].includes(primaryType)) return 'restaurante';
   if (['bar', 'night_club', 'cafe', 'coffee_shop', 'bakery', 'pub'].includes(primaryType)) return 'bar';
   if (['gas_station', 'service_station'].includes(primaryType)) return 'gasolinera';
-  if (['shopping_mall', 'department_store', 'supermarket', 'grocery_store', 'convenience_store', 'clothing_store', 'furniture_store', 'hardware_store', 'home_goods_store'].includes(primaryType)) return 'centro_comercial';
+  if (['shopping_mall', 'department_store'].includes(primaryType)) return 'centro_comercial';
   return null; // tipo desconocido: se descarta
 }
 
