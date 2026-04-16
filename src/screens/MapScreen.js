@@ -55,14 +55,6 @@ function distanceMeters(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// Color del badge del rating (verde/ambar/rojo/gris)
-function getRatingColor(rating, reviewCount) {
-  if (!reviewCount) return '#9E9E9E'; // gris sin valoraciones
-  if (rating >= 4) return '#27AE60'; // verde
-  if (rating >= 3) return '#F39C12'; // naranja
-  return '#E74C3C'; // rojo
-}
-
 export default function MapScreen({ navigation }) {
   const [userLocation, setUserLocation] = useState(null);
   const [rawPlaces, setRawPlaces] = useState([]);
@@ -209,8 +201,10 @@ export default function MapScreen({ navigation }) {
         {places.map((p) => {
           const typeColor = TYPE_COLOR[p.type] || '#8B6914';
           const emoji = TYPE_EMOJI[p.type] || '🚽';
-          const ratingColor = getRatingColor(p.avgRating, p.reviewCount);
           const isSelected = selectedPlace?.id === p.id;
+          const poops = p.reviewCount > 0
+            ? '💩'.repeat(Math.max(1, Math.round(p.avgRating)))
+            : '?';
           return (
             <Marker
               key={p.id}
@@ -227,10 +221,8 @@ export default function MapScreen({ navigation }) {
                 ]}>
                   <Text style={styles.markerEmoji}>{emoji}</Text>
                 </View>
-                <View style={[styles.markerRating, { backgroundColor: ratingColor }]}>
-                  <Text style={styles.markerRatingText}>
-                    {p.reviewCount > 0 ? p.avgRating.toFixed(1) : '?'}
-                  </Text>
+                <View style={styles.markerRating}>
+                  <Text style={styles.markerRatingText}>{poops}</Text>
                 </View>
               </View>
             </Marker>
@@ -341,16 +333,16 @@ const styles = StyleSheet.create({
   },
   markerEmoji: { fontSize: 20, lineHeight: 22 },
   markerRating: {
-    marginTop: -8,
-    paddingHorizontal: 6,
+    marginTop: -6,
+    paddingHorizontal: 4,
     paddingVertical: 1,
-    borderRadius: 10,
+    borderRadius: 8,
     borderWidth: 1.5,
     borderColor: '#FFF',
-    minWidth: 28,
+    backgroundColor: '#5D4E37',
     alignItems: 'center',
   },
-  markerRatingText: { fontSize: 11, fontWeight: '800', color: '#FFF' },
+  markerRatingText: { fontSize: 9, letterSpacing: -1 },
   markerSelected: { borderWidth: 3, borderColor: '#F0D060' },
   // ── Tarjeta de sitio seleccionado ────────────────────
   placeCard: {
