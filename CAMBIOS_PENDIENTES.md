@@ -57,6 +57,15 @@ Acumula todos los fixes y features desde la 1.1.0:
 - **Email al admin** cuando un usuario sugiere un sitio (feature flag
   via SUBMISSION_WEBHOOK_URL en config.js — sin activar por defecto).
 
+- **Recuperar contraseña visible**: boton "¿Olvidaste tu contraseña?" en
+  la pantalla de login, acentos corregidos en todos los strings del flujo
+  de autenticacion en español.
+- **Preparacion iOS completa**: `app.json` con `infoPlist`, permisos,
+  `UIBackgroundModes`, `useFrameworks: "static"` para Google Sign-In en
+  CocoaPods, guards en `apply-patches.js` para que no falle en macOS,
+  perfiles iOS en `eas.json`. Solo falta cuenta Apple Developer para
+  compilar.
+
 ### Branding
 - **Logo oficial** de la app: caca cute con APPreton debajo, en
   assets/icon.png, splash-icon.png, adaptive-icon.png, favicon.png.
@@ -84,6 +93,9 @@ todos los commits de 1.2.0, 1.3.0, 1.4.0 y 1.5.0 en un unico APK.
 ## Commit history reciente
 
 ```
+d32f4f7 feat(ios): Prepara proyecto para build iOS en el futuro
+53b9c45 feat(login): "Recuperar contraseña" visible y acentos en spanish
+4f56dff docs: Refresca .md con estado completo previo a compilar 1.6.0
 23c1021 fix: Icono de notificacion real (cacita silueta) en status bar
 d964445 fix(map): contador real + markers con rating visible
 68459d2 feat: Cagatrivia + boton me gusta en opiniones (1.6.0)
@@ -469,7 +481,48 @@ space:
 powershell -NoProfile -Command "[System.IO.File]::WriteAllText('C:\Users\PC\Appreton\android\local.properties', 'sdk.dir=C:\\Users\\PC\\AppData\\Local\\Android\\Sdk' + [char]10)"
 ```
 
-### 2) NDK 26 vs 27
+### 2) Gradle daemon crash (OOM) al compilar en Windows
+El build con `gradlew assembleRelease` se ha caido tras ~2 horas al 24%
+con el error:
+
+```
+Gradle build daemon disappeared unexpectedly (it may have been killed or may have crashed)
+```
+
+El log del daemon muestra `VM shutdown hook was unable to remove the daemon
+address from the registry` seguido de `IllegalStateException: Cannot start
+managing file contention because this handler has been closed`. Esto es un
+crash por falta de memoria (OOM) — Gradle se come toda la RAM del sistema
+y el SO (o el propio JVM) mata el proceso.
+
+**Fixes recomendados (aplicar todos):**
+
+1. **Subir la RAM del daemon**: en `android/gradle.properties` añadir o
+   modificar:
+   ```properties
+   org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError
+   ```
+   Si el PC tiene 8 GB de RAM usar `-Xmx3g`; si tiene 16 GB, `-Xmx4g`.
+
+2. **Desactivar el daemon entre builds** (ahorra RAM si no compilas
+   continuamente):
+   ```properties
+   org.gradle.daemon=false
+   ```
+
+3. **Cerrar Android Studio, Chrome y procesos pesados** antes de compilar.
+   El build Gradle en modo Release con lint + dex es muy exigente.
+
+4. **Compilar sin lint** (ya lo hacemos con `-x lintVitalAnalyzeRelease
+   -x lintVitalRelease`). Verificar que sigue en el comando.
+
+5. **Alternativa: usar EAS Build** en la nube para evitar limitaciones
+   de hardware local:
+   ```bash
+   eas build --platform android --profile preview
+   ```
+
+### 3) NDK 26 vs 27
 Cambio de NDK 26.1.10909125 a 27.1.12297006 via `ext.ndkVersion` en
 root `android/build.gradle`. Ya esta en `apply-patches.js` y en el
 config plugin `patch-expo-modules.js`. Todos los modulos expo leen
