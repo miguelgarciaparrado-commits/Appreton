@@ -267,6 +267,25 @@ export async function likeReview(reviewId) {
   return next;
 }
 
+export async function unlikeReview(reviewId) {
+  const { data: row, error: selErr } = await supabase
+    .from('reviews').select('likes').eq('id', reviewId).maybeSingle();
+  if (selErr) throw new Error(selErr.message);
+
+  const next = Math.max(0, (row?.likes || 1) - 1);
+  const { error: updErr } = await supabase
+    .from('reviews').update({ likes: next }).eq('id', reviewId);
+  if (updErr) throw new Error(updErr.message);
+
+  try {
+    const map = await getLikedReviewsMap();
+    delete map[reviewId];
+    await storageSet(LIKED_REVIEWS_KEY, JSON.stringify(map));
+  } catch {}
+
+  return next;
+}
+
 // Busca la opinion del usuario actual para un sitio concreto (si existe).
 // Devuelve la review completa o null.
 export async function getUserReviewForPlace(placeId) {

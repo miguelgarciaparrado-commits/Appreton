@@ -17,6 +17,7 @@ import {
   ensurePlaceExists,
   getUserReviewForPlace,
   likeReview,
+  unlikeReview,
   getLikedReviewsMap,
 } from '../data/store';
 import PoopRating from '../components/PoopRating';
@@ -72,29 +73,40 @@ export default function PlaceDetailScreen({ route, navigation }) {
   }
 
   async function handleLike(reviewId) {
-    // Actualizacion optimista: marca como liked y +1 al contador en la lista
-    if (likedMap[reviewId]) return;
-    setLikedMap((m) => ({ ...m, [reviewId]: Date.now() }));
+    const alreadyLiked = !!likedMap[reviewId];
+    const delta = alreadyLiked ? -1 : 1;
+
+    // Actualizacion optimista
+    if (alreadyLiked) {
+      setLikedMap((m) => { const cp = { ...m }; delete cp[reviewId]; return cp; });
+    } else {
+      setLikedMap((m) => ({ ...m, [reviewId]: Date.now() }));
+    }
     setReviews((list) =>
       list.map((r) =>
-        r.id === reviewId ? { ...r, likes: (r.likes || 0) + 1 } : r
+        r.id === reviewId ? { ...r, likes: Math.max(0, (r.likes || 0) + delta) } : r
       )
     );
+
     try {
-      await likeReview(reviewId);
+      if (alreadyLiked) {
+        await unlikeReview(reviewId);
+      } else {
+        await likeReview(reviewId);
+      }
     } catch (e) {
-      // Revertir si falla
-      setLikedMap((m) => {
-        const cp = { ...m };
-        delete cp[reviewId];
-        return cp;
-      });
+      // Revertir
+      if (alreadyLiked) {
+        setLikedMap((m) => ({ ...m, [reviewId]: Date.now() }));
+      } else {
+        setLikedMap((m) => { const cp = { ...m }; delete cp[reviewId]; return cp; });
+      }
       setReviews((list) =>
         list.map((r) =>
-          r.id === reviewId ? { ...r, likes: Math.max(0, (r.likes || 1) - 1) } : r
+          r.id === reviewId ? { ...r, likes: Math.max(0, (r.likes || 0) - delta) } : r
         )
       );
-      console.error('[Appreton] like error', e);
+      console.error('[Appreton] like/unlike error', e);
     }
   }
 
@@ -244,7 +256,6 @@ export default function PlaceDetailScreen({ route, navigation }) {
           <TouchableOpacity
             style={[styles.likeBtn, isLiked && styles.likeBtnActive]}
             onPress={() => handleLike(item.id)}
-            disabled={isLiked}
             activeOpacity={0.7}
           >
             <Text style={[styles.likeIcon, isLiked && styles.likeIconActive]}>
