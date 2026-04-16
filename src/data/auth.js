@@ -1,5 +1,6 @@
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
+import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
 import { storageGet, storageSet, storageRemove } from './storage';
 import { supabase } from './supabase';
@@ -614,11 +615,49 @@ export async function loginWithProvider(provider) {
   return user;
 }
 
+async function uploadAvatarToStorage(localUri, userId) {
+  try {
+    const base64 = await FileSystem.readAsStringAsync(localUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    const raw = atob(base64);
+    const bytes = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+
+    const fileName = `${userId}.jpg`;
+    const { error } = await supabase.storage
+      .from('avatars')
+      .upload(fileName, bytes, {
+        contentType: 'image/jpeg',
+        upsert: true,
+      });
+    if (error) throw error;
+
+    const { data } = supabase.storage
+      .from('avatars')
+      .getPublicUrl(fileName);
+    return `${data.publicUrl}?t=${Date.now()}`;
+  } catch (e) {
+    console.warn('[Appreton] Avatar upload failed:', e.message);
+    return null;
+  }
+}
+
 // Save/update user profile
 export async function saveUserProfile(updates) {
   const user = await getCurrentUser();
   if (!user) return null;
   const updated = { ...user, ...updates };
+
+  if (
+    updated.avatarType === 'custom' &&
+    updated.customAvatarUri &&
+    !updated.customAvatarUri.startsWith('http')
+  ) {
+    const publicUrl = await uploadAvatarToStorage(updated.customAvatarUri, updated.id);
+    if (publicUrl) updated.customAvatarUri = publicUrl;
+  }
+
   // Recalculate level from XP
   const levelInfo = getLevelInfo(updated.xp);
   updated.level = levelInfo.level;

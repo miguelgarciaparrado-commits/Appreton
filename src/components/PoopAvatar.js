@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 
 const POOP_AVATARS = {
@@ -31,7 +31,9 @@ export function getAllPoopAvatars() {
 }
 
 export default function PoopAvatar({ type, customUri, size = 60 }) {
-  if (type === 'custom' && customUri) {
+  const [imgError, setImgError] = useState(false);
+
+  if (type === 'custom' && customUri && !imgError) {
     return (
       <View style={[styles.container, { width: size, height: size, borderRadius: size / 2, overflow: 'hidden' }]}>
         <Image
@@ -39,12 +41,13 @@ export default function PoopAvatar({ type, customUri, size = 60 }) {
           source={{ uri: customUri }}
           style={{ width: size, height: size }}
           resizeMode="cover"
+          onError={() => setImgError(true)}
         />
       </View>
     );
   }
 
-  const config = getPoopAvatarConfig(type);
+  const config = getPoopAvatarConfig(type === 'custom' ? 'poop_1' : type);
   const emojiSize = size * 0.5;
 
   return (

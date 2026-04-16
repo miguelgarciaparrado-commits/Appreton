@@ -68,6 +68,12 @@ Acumula todos los fixes y features desde la 1.1.0:
   perfiles iOS en `eas.json`. Solo falta cuenta Apple Developer para
   compilar.
 
+- **Avatares visibles en ranking multi-dispositivo**: los avatares
+  personalizados (foto de camara/galeria) se suben a Supabase Storage
+  y se guardan como URL publica. Antes guardaban una ruta local
+  (`file://...`) que solo funcionaba en el dispositivo original.
+  Fallback: si la imagen no carga, se muestra el avatar caca por defecto.
+
 ### Branding
 - **Logo oficial** de la app: caca cute con APPreton debajo, en
   assets/icon.png, splash-icon.png, adaptive-icon.png, favicon.png.
@@ -142,6 +148,14 @@ a9d24c5 feat: Migracion de cache por version
    ```sql
    alter table reviews add column if not exists likes int default 0;
    ```
+6. **Supabase → Storage**: crear bucket **`avatars`** con acceso **publico**.
+   Luego añadir una policy para que solo usuarios autenticados puedan subir:
+   - Ir a Storage → Policies → `avatars` bucket
+   - New policy → INSERT: `auth.role() = 'authenticated'`
+   - New policy → UPDATE: `auth.role() = 'authenticated'`
+   - (SELECT ya es publico al ser un bucket publico)
+   Sin este bucket, los avatares personalizados solo se muestran en el
+   dispositivo del dueño.
 
 ## Requisitos del local para que el build salga bien (Android)
 
