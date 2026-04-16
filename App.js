@@ -57,6 +57,7 @@ import AppretoneroRankingScreen from './src/screens/AppretoneroRankingScreen';
 import MapScreen from './src/screens/MapScreen';
 import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 import CagatriviaScreen from './src/screens/CagatriviaScreen';
+import GamesScreen from './src/screens/GamesScreen';
 import { getCurrentUser, logout } from './src/data/auth';
 import { storageGet, storageSet, storageRemove } from './src/data/storage';
 import { supabase } from './src/data/supabase';
@@ -64,6 +65,25 @@ import { CURRENT_VERSION } from './src/version';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+
+function GamesStack() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: '#8B6914' },
+        headerTintColor: '#FFF',
+        headerTitleStyle: { fontWeight: 'bold' },
+      }}
+    >
+      <Stack.Screen name="GamesHub" component={GamesScreen} options={{ headerShown: false }} />
+      <Stack.Screen
+        name="CagatriviaGame"
+        component={CagatriviaScreen}
+        options={{ headerShown: false }}
+      />
+    </Stack.Navigator>
+  );
+}
 
 function HomeStack() {
   return (
@@ -307,12 +327,12 @@ export default function App() {
           }}
         />
         <Tab.Screen
-          name="Cagatrivia"
-          component={CagatriviaScreen}
+          name="Juegos"
+          component={GamesStack}
           options={{
             headerShown: false,
-            tabBarLabel: 'Cagatrivia',
-            tabBarIcon: ({ focused }) => <TabIcon emoji={'\uD83E\uDDE0'} focused={focused} />,
+            tabBarLabel: 'Juegos',
+            tabBarIcon: ({ focused }) => <TabIcon emoji={'\uD83C\uDFAE'} focused={focused} />,
           }}
         />
         <Tab.Screen
