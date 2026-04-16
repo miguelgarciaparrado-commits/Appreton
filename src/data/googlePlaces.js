@@ -51,6 +51,19 @@ async function searchNearby(latitude, longitude, radiusMeters, includedTypes) {
   return json.places || [];
 }
 
+const LOW_COST_GAS = [
+  'ballenoil', 'plenoil', 'bonarea', 'bon area', 'petroprix',
+  'gm oil', 'fast fuel', 'autonet', 'low cost', 'lowcost',
+  'e.leclerc', 'leclerc', 'alcampo', 'carrefour', 'eroski',
+  'makro', 'costco', 'esclat', 'bon preu',
+];
+
+function isLowCostGasStation(name, type) {
+  if (type !== 'gasolinera') return false;
+  const lower = (name || '').toLowerCase();
+  return LOW_COST_GAS.some((brand) => lower.includes(brand));
+}
+
 function normalizePlace(p, latitude, longitude) {
   return {
     id: `g_${p.id}`,
@@ -85,7 +98,8 @@ export async function fetchNearbyPlaces(latitude, longitude, radiusMeters = 600)
       if (p.businessStatus !== 'OPERATIONAL') continue;
       if (seen.has(p.id)) continue;
       const normalized = normalizePlace(p, latitude, longitude);
-      if (!normalized.type) continue; // descarta tipos sin categoria conocida
+      if (!normalized.type) continue;
+      if (isLowCostGasStation(normalized.name, normalized.type)) continue;
       seen.add(p.id);
       places.push(normalized);
     }
