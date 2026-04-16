@@ -1,14 +1,3 @@
-// Helpers de notificaciones y geofencing para Appreton (Android + iOS).
-//
-// Estrategia anti-spam:
-// - No notificamos al ENTRAR en un sitio, solo si la persona permanece
-//   dentro del radio durante DWELL_SECONDS segundos (ej: 2 min). Así no
-//   se dispara un aviso al pasar por delante de un bar.
-// - Una vez avisado un sitio, hay un throttle de 24h por placeId: aunque
-//   vuelvas varias veces no te insistimos.
-// - Solo 1 sitio "en curso" a la vez: si pasas del Bar A al Bar B antes
-//   del dwell, el pendiente de A se cancela automáticamente.
-
 import * as Notifications from 'expo-notifications';
 import * as Location from 'expo-location';
 import { Platform } from 'react-native';
@@ -18,12 +7,14 @@ export const GEOFENCE_TASK = 'appreton-geofence-task';
 export const GOOGLE_CACHE_KEY = '@appreton_google_cache';
 const NOTIFIED_KEY = '@appreton_notified_places';
 const PENDING_KEY = '@appreton_pending_notifications';
-const RECENT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24h de throttle por sitio
+const RECENT_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-// Tiempo que tiene que pasar el usuario dentro del establecimiento antes
-// de dispararle el aviso. Exportado para que el banner foreground use el
-// mismo valor y la experiencia sea consistente.
-export const DWELL_SECONDS = 120; // 2 minutos
+export const DWELL_SECONDS = 120;
+export const GEOFENCE_RADIUS_M = 100;
+// ~11 km/h — por encima de esto se considera que vas en vehiculo/bici
+export const SPEED_THRESHOLD_MS = 3;
+// Distancia GPS real maxima al sitio para aceptar el ENTER como valido
+export const MAX_VERIFY_DISTANCE_M = 100;
 
 // Configuración del handler de notificaciones cuando la app está en foreground.
 // Silenciamos las notificaciones del sistema en foreground porque ya mostramos
@@ -207,7 +198,7 @@ export async function startGeofencingForPlaces(places) {
       identifier: p.id,
       latitude: p.latitude,
       longitude: p.longitude,
-      radius: 50,
+      radius: GEOFENCE_RADIUS_M,
       notifyOnEnter: true,
       notifyOnExit: true,
     }));

@@ -38,7 +38,9 @@ Acumula todos los fixes y features desde la 1.1.0:
 - **Notificaciones de cercania con dwell detection** (Android + iOS):
   geofencing background con 20 regiones, aviso tras 2 min dentro del
   radio, throttle 24h por sitio. Banner foreground equivalente en
-  Explorar.
+  Explorar. Filtro anti-conduccion: si el GPS detecta velocidad >3 m/s
+  (~11 km/h) o distancia real al sitio >100m, el ENTER se descarta
+  silenciosamente (evita 4+ notificaciones falsas al pasar en coche).
 - **Mapa mejorado**: markers custom con emoji del tipo + badge con el
   rating numerico y color (verde/naranja/rojo/gris) para ver de un
   vistazo los mejores WCs. Contador real filtrado a 600m del usuario.
@@ -93,6 +95,7 @@ todos los commits de 1.2.0, 1.3.0, 1.4.0 y 1.5.0 en un unico APK.
 ## Commit history reciente
 
 ```
+XXXXXXX fix: Filtro anti-conduccion en geofencing (velocidad + distancia GPS)
 d32f4f7 feat(ios): Prepara proyecto para build iOS en el futuro
 53b9c45 feat(login): "Recuperar contraseña" visible y acentos en spanish
 4f56dff docs: Refresca .md con estado completo previo a compilar 1.6.0
