@@ -48,7 +48,7 @@ const eb = StyleSheet.create({
 import HomeScreen from './src/screens/HomeScreen';
 import PlaceDetailScreen from './src/screens/PlaceDetailScreen';
 import AddReviewScreen from './src/screens/AddReviewScreen';
-import AddPlaceScreen from './src/screens/AddPlaceScreen';
+
 import RankingScreen from './src/screens/RankingScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import ProfileSetupScreen from './src/screens/ProfileSetupScreen';
@@ -304,14 +304,6 @@ export default function App() {
           options={{
             headerShown: false,
             tabBarIcon: ({ focused }) => <TabIcon emoji={'\uD83D\uDDFA\uFE0F'} focused={focused} />,
-          }}
-        />
-        <Tab.Screen
-          name="Sugerir"
-          component={AddPlaceScreen}
-          options={{
-            title: 'Sugerir sitio',
-            tabBarIcon: ({ focused }) => <TabIcon emoji={'\u2795'} focused={focused} />,
           }}
         />
         <Tab.Screen
