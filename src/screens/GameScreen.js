@@ -170,7 +170,7 @@ export default function GameScreen({ visible, onClose }) {
         <View style={styles.gameArea}>
           {gameState === 'idle' && (
             <View style={styles.centerBox}>
-              <Text style={styles.bigEmoji}>\uD83D\uDCA9</Text>
+              <Text style={styles.bigEmoji}>💩</Text>
               <Text style={styles.centerTitle}>Toca la Caca</Text>
               <Text style={styles.centerSub}>
                 Toca las cacas antes de que desaparezcan{'\n'}
@@ -188,7 +188,7 @@ export default function GameScreen({ visible, onClose }) {
 
           {gameState === 'gameover' && (
             <View style={styles.centerBox}>
-              <Text style={styles.bigEmoji}>\uD83D\uDCA8</Text>
+              <Text style={styles.bigEmoji}>💨</Text>
               <Text style={styles.centerTitle}>Game Over</Text>
               <Text style={styles.gameoverScore}>{score} puntos</Text>
               {score >= highScore && score > 0 && (
