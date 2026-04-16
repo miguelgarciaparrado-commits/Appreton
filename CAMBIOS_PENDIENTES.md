@@ -25,9 +25,11 @@ de que termine la compilacion que el dev tiene en marcha ahora mismo.
 Acumula todos los fixes y features desde la 1.1.0:
 
 ### Features principales
-- **Cagatrivia** (nueva pestaña del TabBar): mini-juego de trivia con 30
-  preguntas sobre cultura escatologica, records absurdos y curiosidades
-  del WC. 10 preguntas aleatorias por partida, high score persistido.
+- **Cagatrivia + Toca la Caca** (pestaña "Juegos"): pantalla hub con
+  dos mini-juegos. Cagatrivia: trivia de 30+ preguntas escatologicas,
+  10 por partida, high score. Toca la Caca: cacas aparecen en pantalla
+  y hay que tocarlas antes de que desaparezcan, 3 vidas, dificultad
+  creciente. Ambos con persistencia de records.
 - **Me gusta en opiniones**: boton ❤️ en cada review del detalle del
   sitio, con contador y prevencion de likes duplicados por dispositivo.
   Nueva columna `likes` en la tabla `reviews`.
@@ -41,9 +43,13 @@ Acumula todos los fixes y features desde la 1.1.0:
   Explorar. Filtro anti-conduccion: si el GPS detecta velocidad >3 m/s
   (~11 km/h) o distancia real al sitio >100m, el ENTER se descarta
   silenciosamente (evita 4+ notificaciones falsas al pasar en coche).
-- **Mapa mejorado**: markers custom con emoji del tipo + badge con el
-  rating numerico y color (verde/naranja/rojo/gris) para ver de un
-  vistazo los mejores WCs. Contador real filtrado a 600m del usuario.
+- **Mapa mejorado**: markers custom con emoji del tipo + badge con
+  cacas (💩 a 💩💩💩💩💩) segun valoracion media. Tarjeta inferior
+  al tocar un marker con botones "Como llegar" y "Ver opiniones".
+  Contador real filtrado a 600m. Sin supermercados ni tiendas sin WC
+  (solo shopping_mall y department_store como centro_comercial).
+- **Como llegar**: boton 🧭 en el detalle de cada sitio que abre
+  Google Maps (Android) o Apple Maps (iOS) con la ruta al WC.
 - **Migracion automatica de cache** al cambiar de version: al arrancar
   la app, si detecta que el CURRENT_VERSION cambio, borra los caches
   de places y reviews para evitar arrastre de datos obsoletos.
@@ -56,8 +62,9 @@ Acumula todos los fixes y features desde la 1.1.0:
   edits no dan XP.
 - **Perfil con badge de racha** 🔥 cuando llevas varios dias seguidos
   opinando.
-- **Email al admin** cuando un usuario sugiere un sitio (feature flag
-  via SUBMISSION_WEBHOOK_URL en config.js — sin activar por defecto).
+- **Pestaña "Sugerir sitio" eliminada** del TabBar (codigo se mantiene
+  en el repo por si se reactiva). El email al admin sigue disponible
+  como feature flag en config.js.
 
 - **Recuperar contraseña visible**: boton "¿Olvidaste tu contraseña?" en
   la pantalla de login, acentos corregidos en todos los strings del flujo
@@ -101,31 +108,25 @@ todos los commits de 1.2.0, 1.3.0, 1.4.0 y 1.5.0 en un unico APK.
 ## Commit history reciente
 
 ```
-XXXXXXX fix: Filtro anti-conduccion en geofencing (velocidad + distancia GPS)
+697788c fix: Emojis literales en Toca la Caca (no unicode escapes en JSX)
+e49245f fix(map): Quita supermercados y tiendas sin WC publico
+f488443 feat: Pantalla "Juegos" con Cagatrivia + Toca la Caca
+fcb62c1 feat: Elimina pestaña "Sugerir sitio" del TabBar
+aaa4b1b feat(map): Markers muestran cacas (1-5) en vez de colores
+a3c14dd feat: Boton "Como llegar" en detalle de sitio y mapa
+cc6c55d fix: Avatares personalizados visibles en ranking multi-dispositivo
+b69fe71 fix: Filtro anti-conduccion en geofencing (velocidad + distancia GPS)
 d32f4f7 feat(ios): Prepara proyecto para build iOS en el futuro
 53b9c45 feat(login): "Recuperar contraseña" visible y acentos en spanish
-4f56dff docs: Refresca .md con estado completo previo a compilar 1.6.0
 23c1021 fix: Icono de notificacion real (cacita silueta) en status bar
 d964445 fix(map): contador real + markers con rating visible
 68459d2 feat: Cagatrivia + boton me gusta en opiniones (1.6.0)
-55c739d docs: Actualiza .md con estado 1.6.0 en curso
 64468cf feat: Login con Google nativo (adios supabase.co del prompt)
 ab827ab feat: Email al admin cuando alguien sugiere un sitio
 9529a6f feat: Usa el logo APPreton como icono oficial de la app
-7b9b74d assets: Logo icono principal con caca + APPreton (sin slogan)
-d00ebae assets: Logo APPreton solo texto (sin emoji de caca)
-8d7c69c assets: Logo APPRETON en PNG 1024 y 512
-7b6e029 docs: Logo APPRETON en SVG + actualiza estado en md
-00e13bd fix: Inyecta ext.ndkVersion en el root android/build.gradle
-489e79f fix: Inyecta ndkVersion 27.1.12297006 en ExpoModulesCorePlugin
-ea78c57 fix: apply-patches.js sustituye NDK 26 por 27 en node_modules
-ac06120 fix: Usa NDK 27.1.12297006 en vez de 26.1.10909125
-0f0b1b7 fix: Avatar desde camara no aparecia
 cd8b852 feat: Revamp de niveles, XP y anti-farmeo (1.4.0)
-28d7da2 docs: Actualiza CAMBIOS_PENDIENTES.md con estado actual
 a9d24c5 feat: Migracion de cache por version
 68ecbf7 feat: Notificaciones de cercania (Android + iOS)
-4eeb5aa fix: Deja de tragarse los errores de Supabase al escribir
 03e1392 fix: Evita opiniones duplicadas y muestra media real en Explorar
 ```
 
@@ -173,113 +174,160 @@ a9d24c5 feat: Migracion de cache por version
 
 ---
 
-## Compilacion para iOS (futuro)
+## Compilacion para iOS — Guia completa
 
-El proyecto ya esta preparado para compilar para iOS. La compilacion
-en si requiere un Mac con Xcode instalado (Apple no permite compilar
-apps iOS desde Windows/Linux nativamente). Dos caminos:
+El proyecto esta **100% preparado** para compilar para iOS. Todo el
+codigo React Native / Expo es cross-platform. La configuracion iOS
+esta en `app.json`, `eas.json` y los plugins. Esta seccion es una guia
+autocontenida: con este fichero y el repo, cualquier persona con un Mac
+puede generar el .ipa sin necesidad de contexto adicional.
 
-### Opcion A — Compilar en un Mac local
+### Que esta ya configurado en el repo
 
-En un Mac con Xcode 15+, Node 18+, y CocoaPods instalado:
+| Fichero | Que tiene |
+|---------|-----------|
+| `app.json → ios` | `bundleIdentifier: "com.appreton.app"`, `buildNumber: "7"`, `googleMapsApiKey`, `infoPlist` con todos los permisos en español, `UIBackgroundModes: [location, fetch, processing]`, `ITSAppUsesNonExemptEncryption: false`, `associatedDomains: []` |
+| `app.json → plugins` | `expo-build-properties` con `ios.deploymentTarget: "15.1"` y `useFrameworks: "static"` (obligatorio para Google Sign-In v13 en CocoaPods), `expo-location` con permisos Always+WhenInUse, `expo-notifications`, `@react-native-google-signin` con `iosUrlScheme`, `expo-image-picker` con `microphonePermission: false` |
+| `eas.json` | Tres perfiles iOS: `development` (simulator), `preview` (internal), `production` (store). Submit con placeholders para Apple ID / Team ID |
+| `apply-patches.js` | Guard: si no existe `node_modules/expo-modules-core/android`, el script termina con codigo 0 — seguro en macOS |
+
+### Requisitos previos (una sola vez)
+
+1. **Mac** con macOS 13+ (Ventura o superior)
+2. **Xcode 15+** instalado desde la App Store
+3. **Command Line Tools**: `xcode-select --install`
+4. **Node 18+**: `brew install node` (o nvm)
+5. **CocoaPods**: `sudo gem install cocoapods`
+6. **Cuenta Apple Developer** ($99/año) — sin ella solo puedes
+   probar en simulador, no instalar en dispositivos reales
+
+### Opcion A — Compilar en el Mac local (paso a paso)
 
 ```bash
+# 1. Clonar el repo
+git clone https://github.com/miguelgarciaparrado-commits/Appreton.git
 cd Appreton
+git checkout claude/recover-appleton-conversation-QqmOq
+
+# 2. Instalar dependencias JS
 npm install
+
+# 3. Generar proyecto nativo iOS
 npx expo prebuild --platform ios --clean
-cd ios
-pod install
-cd ..
-npx expo run:ios --configuration Release
+# Responder "y" si pregunta por uncommitted changes
+
+# 4. Instalar pods (CocoaPods)
+cd ios && pod install && cd ..
+
+# 5a. Probar en simulador (no necesita Apple Developer)
+npx expo run:ios
+
+# 5b. Compilar release para dispositivo real (necesita Apple Developer)
+npx expo run:ios --configuration Release --device
 ```
 
-Requisitos adicionales:
-- **Apple Developer Account** ($99/año) para compilar y firmar
-  APPs que se puedan instalar en dispositivos reales. Sin la cuenta
-  solo puedes probar en el simulador.
-- **Provisioning profile** y **signing certificate** configurados
-  en Xcode (con la cuenta Developer).
+**Notas:**
+- Al abrir Xcode (`open ios/Appreton.xcworkspace`), configurar
+  el **Team** en Signing & Capabilities con tu cuenta Developer.
+- Xcode generara automaticamente el provisioning profile si
+  tienes Automatic Signing activado.
+- El primer build tarda ~10-15 min (compila Google Maps SDK,
+  hermes, react-native, etc.). Los siguientes son mas rapidos.
 
-### Opcion B — EAS Build (se compila en la nube de Expo)
-
-La forma mas facil sin necesidad de Mac:
+### Opcion B — EAS Build (compilar en la nube, sin Mac)
 
 ```bash
+# 1. Instalar EAS CLI
 npm install -g eas-cli
+
+# 2. Login con cuenta Expo
 eas login
+
+# 3. Configurar credenciales Apple (una sola vez)
+eas credentials --platform ios
+# EAS te pedira tu Apple ID y password, y genera certificados
+# y provisioning profiles automaticamente.
+
+# 4. Build preview (genera .ipa para TestFlight)
 eas build --platform ios --profile preview
+
+# 5. Build produccion (para App Store)
+eas build --platform ios --profile production
+
+# 6. Subir a App Store Connect
+eas submit --platform ios
 ```
 
-EAS compila en sus servidores Mac, te devuelve un `.ipa` que puedes
-instalar en dispositivos via TestFlight o Apple Configurator.
+**Ventaja**: no necesitas Mac. EAS compila en servidores Apple
+de Expo. El .ipa se descarga o se sube directamente a TestFlight.
 
-Tambien necesitas una cuenta Apple Developer para firmar — aunque
-EAS puede gestionar certificados automaticamente con `eas credentials`.
+### Configuracion en Apple / Google Cloud (una sola vez)
 
-### Configuracion ya preparada en el repo
+**Apple Developer Portal** (https://developer.apple.com):
+1. Identifiers → Register App ID: `com.appreton.app`
+2. Capabilities del App ID:
+   - Push Notifications (para notificaciones locales futuras)
+   - Maps
+   - Background Modes → Location updates, Background fetch
+3. Provisioning Profiles: crear Development + Distribution
+   (EAS los crea automaticamente si usas `eas credentials`)
 
-- `app.json` tiene la seccion `ios`:
-  - `bundleIdentifier: "com.appreton.app"`
-  - `buildNumber: "7"` (equivalente al versionCode de Android)
-  - `NSLocationWhenInUseUsageDescription` y `NSLocationAlwaysAndWhenInUseUsageDescription`
-    con acentos correctos.
-  - `NSCameraUsageDescription` y `NSPhotoLibraryUsageDescription`
-    para el picker de avatar.
-  - `UIBackgroundModes: [location, fetch, processing]` para el
-    geofencing en background.
-  - `ITSAppUsesNonExemptEncryption: false` para saltar el tramite
-    de exportacion de criptografia de Apple.
-- `expo-build-properties` plugin con `ios.deploymentTarget: "15.1"`
-  y `useFrameworks: "static"` — lo segundo es obligatorio para que
-  `@react-native-google-signin/google-signin` v13 enlace bien con
-  CocoaPods.
-- `@react-native-google-signin/google-signin` plugin con
-  `iosUrlScheme` ya configurado.
-- `eas.json` con los tres perfiles (`development`, `preview`,
-  `production`) listos para iOS.
+**Google Cloud Console** (https://console.cloud.google.com):
+1. Auth Platform → Clientes → Crear **OAuth Client iOS**:
+   - Bundle ID: `com.appreton.app`
+   - Google te da un Client ID tipo `1012059070308-xxxxx.apps.googleusercontent.com`
+2. Google Maps API Key:
+   - Editar la key existente (`AIzaSyAGsJx_0fUzJmVDA539E5zo_mDfLBvKRMA`)
+   - Añadir **bundle restriction** para `com.appreton.app` (iOS)
+   - O crear una key separada para iOS
 
-### Lo que hay que hacer en Apple / Google Cloud para iOS
+**Supabase**: no hay que tocar nada — la configuracion de Google
+provider ya vale para ambas plataformas.
 
-1. **Apple Developer Portal** (cuando tengas la cuenta):
-   - Register App ID: `com.appreton.app`
-   - Habilita capabilities: Push Notifications, Maps, Background Modes
-     (Location updates, Background fetch).
-   - Crea un provisioning profile Development y otro Distribution.
+### Rellenar eas.json para submit (cuando vayas a publicar)
 
-2. **Google Cloud → Auth Platform → Clientes**:
-   - Crear un nuevo **OAuth Client iOS** con `com.appreton.app`
-     como Bundle ID. Google te dara un Client ID tipo
-     `1012059070308-xxxxx.apps.googleusercontent.com`.
-   - El `iosUrlScheme` que tenemos en `app.json` sigue siendo el del
-     Web Client ID (GoogleSignin.configure acepta el WebClientId
-     tanto en Android como iOS). Pero Google necesita ver el cliente
-     iOS registrado para que Apple no rechace el login.
+En `eas.json → submit → production → ios`, reemplazar:
+```json
+{
+  "appleId": "tu-email@icloud.com",
+  "ascAppId": "1234567890",
+  "appleTeamId": "ABCDEF1234"
+}
+```
+- `appleId`: tu Apple ID (email)
+- `ascAppId`: el App ID numerico en App Store Connect
+- `appleTeamId`: tu Team ID (visible en developer.apple.com → Membership)
 
-3. **Google Maps API Key iOS**:
-   - En Google Cloud → Credentials, edita la API Key actual de
-     Google Maps y añade un **bundle restriction** para
-     `com.appreton.app` (para iOS) ademas del paquete Android.
-   - O crea una API Key separada solo para iOS.
+### Diferencias iOS vs Android a tener en cuenta
 
-4. **Supabase**: no hay que tocar nada — la configuracion de Google
-   provider ya vale para ambas plataformas.
+| Aspecto | Android | iOS |
+|---------|---------|-----|
+| Icono notificacion | `notification-icon.png` monocromo | Icono de la app automaticamente |
+| Geofencing background | `ACCESS_BACKGROUND_LOCATION` | Permiso "Always" (usuario debe conceder explicitamente) |
+| Google Maps | Incluido en Google Play Services | Requiere Google Maps SDK iOS (CocoaPods lo instala) |
+| OAuth firma | SHA-1 del keystore | Bundle ID + Team ID (sin keystore) |
+| Export compliance | N/A | `ITSAppUsesNonExemptEncryption: false` (ya configurado) |
+| Pago tienda | Play Console $25 one-time | Apple Developer $99/año |
 
-### Posibles ajustes especificos iOS cuando llegues a compilar
+### Checklist rapido iOS
 
-- `MapView` con `PROVIDER_GOOGLE` requiere Google Maps SDK iOS —
-  cocoapods lo instala automaticamente con el plugin de react-native-maps.
-- `expo-notifications` con notificaciones locales (las que usamos)
-  funciona en iOS sin APNs. Si en el futuro quieres enviar push
-  remoto necesitaras configurar APNs en Apple Developer Portal.
-- `expo-task-manager` con geofencing funciona en iOS pero requiere
-  permiso de ubicacion "Always" que el usuario debe conceder
-  explicitamente. El flujo de permiso lo gestiona `expo-location`.
-- Las notificaciones en iOS usan el icono de la app automaticamente —
-  no se usa el `notification-icon.png` monocromo (ese es solo
-  Android).
-- **Fingerprint de firma**: en iOS no existe el concepto de SHA-1
-  para OAuth — Apple usa bundle ID + Team ID. No hay que
-  preocuparse por el keystore.
+- [x] `bundleIdentifier` configurado
+- [x] `buildNumber` sincronizado con `versionCode`
+- [x] `infoPlist` con todos los permisos en español
+- [x] `UIBackgroundModes` para geofencing
+- [x] `ITSAppUsesNonExemptEncryption: false`
+- [x] `useFrameworks: "static"` para Google Sign-In
+- [x] `iosUrlScheme` para Google OAuth
+- [x] `deploymentTarget: "15.1"`
+- [x] `eas.json` con perfiles iOS
+- [x] `apply-patches.js` compatible con macOS
+- [ ] Cuenta Apple Developer activa
+- [ ] App ID registrado en Apple Developer Portal
+- [ ] OAuth Client iOS en Google Cloud
+- [ ] Google Maps API Key con bundle restriction iOS
+- [ ] Primer build: `eas build --platform ios --profile preview`
+- [ ] Screenshots iPhone 6.7" y iPad 12.9" (si supportsTablet)
+- [ ] Submit a TestFlight
 
 ## Bugs resueltos
 
@@ -325,15 +373,29 @@ EAS puede gestionar certificados automaticamente con `eas credentials`.
 - Media calculada en cliente desde las reviews reales, tanto en el
   detalle como en la lista de Explorar.
 
+### Pestañas del TabBar (6)
+Explorar | Mapa | Juegos | Top WC | Appretoneros | Perfil
+
 ### Explorar
 - Google Places (600m) + sitios de la app (Supabase).
 - Filtro solo `OPERATIONAL`.
 - Sin categoria "otro": sitios sin categoria conocida se descartan.
+- Sin supermercados ni tiendas pequeñas (solo shopping_mall / department_store).
 - Sort por distancia o por mejor valorado.
+- Boton "Como llegar" en el detalle de cada sitio.
 
 ### Mapa
-- Google Maps con markers por establecimiento, colores por tipo.
+- Google Maps con markers por establecimiento, emoji del tipo + cacas
+  de valoracion (💩 a 💩💩💩💩💩). "?" si no hay opiniones.
+- Tarjeta inferior al tocar marker con "Como llegar" + "Ver opiniones".
 - Boton para centrar en ubicacion actual.
+- Solo muestra: bares, restaurantes, gasolineras, shopping malls y
+  department stores. Supermercados y tiendas sin WC filtrados.
+
+### Juegos
+- Pestaña "Juegos" (🎮) con hub que da acceso a:
+  - **Cagatrivia**: 30+ preguntas, 10 por partida, high score.
+  - **Toca la Caca**: mini-juego tap, 3 vidas, dificultad creciente.
 
 ### Perfil
 - Login con Google OAuth + email/password via Supabase Auth.
@@ -558,9 +620,7 @@ config plugin `patch-expo-modules.js`. Todos los modulos expo leen
   `eas.json`, crear cuenta en Play Console ($25 one-time), listing,
   AAB (`gradlew bundleRelease`), upload. En espera — el usuario NO
   quiere publicar todavia.
-- **Mini-juego "Toca la Caca"** (`src/screens/GameScreen.js`) está
-  en el repo pero sin boton que lo abra (se retiro temporalmente
-  en c4e8baf). Sustituido por Cagatrivia.
+- **Toca la Caca** reintegrado en pestaña "Juegos" junto a Cagatrivia.
 - Badges / logros adicionales a los niveles (descubriste 5 bares,
   racha de 7 dias, etc.).
 - Pantalla de historial de opiniones propias en Perfil.
