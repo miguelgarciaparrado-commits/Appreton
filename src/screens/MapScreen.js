@@ -7,8 +7,10 @@ import {
   StatusBar,
   ActivityIndicator,
   TouchableOpacity,
+  Linking,
+  Platform,
 } from 'react-native';
-import MapView, { Marker, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { getPlaces, getReviews } from '../data/store';
@@ -29,6 +31,18 @@ const TYPE_EMOJI = {
 };
 
 const RADIUS_M = 600;
+
+function openDirections(latitude, longitude) {
+  const url = Platform.select({
+    ios: `maps:0,0?daddr=${latitude},${longitude}`,
+    android: `google.navigation:q=${latitude},${longitude}`,
+  });
+  Linking.openURL(url).catch(() => {
+    Linking.openURL(
+      `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`,
+    );
+  });
+}
 
 function distanceMeters(lat1, lon1, lat2, lon2) {
   const R = 6371000;
@@ -55,6 +69,7 @@ export default function MapScreen({ navigation }) {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [locationError, setLocationError] = useState(null);
+  const [selectedPlace, setSelectedPlace] = useState(null);
   const mapRef = useRef(null);
 
   useFocusEffect(
@@ -189,52 +204,35 @@ export default function MapScreen({ navigation }) {
         }}
         showsUserLocation
         showsMyLocationButton={false}
+        onPress={() => setSelectedPlace(null)}
       >
-        {places.map((place) => {
-          const typeColor = TYPE_COLOR[place.type] || '#8B6914';
-          const emoji = TYPE_EMOJI[place.type] || '🚽';
-          const ratingColor = getRatingColor(place.avgRating, place.reviewCount);
+        {places.map((p) => {
+          const typeColor = TYPE_COLOR[p.type] || '#8B6914';
+          const emoji = TYPE_EMOJI[p.type] || '🚽';
+          const ratingColor = getRatingColor(p.avgRating, p.reviewCount);
+          const isSelected = selectedPlace?.id === p.id;
           return (
             <Marker
-              key={place.id}
-              coordinate={{ latitude: place.latitude, longitude: place.longitude }}
+              key={p.id}
+              coordinate={{ latitude: p.latitude, longitude: p.longitude }}
               tracksViewChanges={false}
               anchor={{ x: 0.5, y: 1 }}
+              onPress={() => setSelectedPlace(p)}
             >
               <View style={styles.markerWrap}>
-                <View style={[styles.markerCircle, { backgroundColor: typeColor }]}>
+                <View style={[
+                  styles.markerCircle,
+                  { backgroundColor: typeColor },
+                  isSelected && styles.markerSelected,
+                ]}>
                   <Text style={styles.markerEmoji}>{emoji}</Text>
                 </View>
                 <View style={[styles.markerRating, { backgroundColor: ratingColor }]}>
                   <Text style={styles.markerRatingText}>
-                    {place.reviewCount > 0 ? place.avgRating.toFixed(1) : '?'}
+                    {p.reviewCount > 0 ? p.avgRating.toFixed(1) : '?'}
                   </Text>
                 </View>
               </View>
-              <Callout
-                onPress={() =>
-                  navigation.navigate('Explorar', {
-                    screen: 'PlaceDetail',
-                    params: { place },
-                  })
-                }
-                style={styles.callout}
-              >
-                <View style={styles.calloutContent}>
-                  <Text style={styles.calloutEmoji}>{emoji}</Text>
-                  <View style={styles.calloutInfo}>
-                    <Text style={styles.calloutName} numberOfLines={2}>
-                      {place.name}
-                    </Text>
-                    <Text style={styles.calloutRating}>
-                      {place.reviewCount > 0
-                        ? `${'💩'.repeat(Math.round(place.avgRating))} ${place.avgRating.toFixed(1)} (${place.reviewCount})`
-                        : 'Sin valorar'}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.calloutTap}>Toca para ver detalle</Text>
-              </Callout>
             </Marker>
           );
         })}
@@ -251,6 +249,53 @@ export default function MapScreen({ navigation }) {
           {places.length} WC en {RADIUS_M} m
         </Text>
       </View>
+
+      {/* Tarjeta del sitio seleccionado */}
+      {selectedPlace && (
+        <View style={styles.placeCard}>
+          <View style={styles.placeCardHeader}>
+            <Text style={styles.placeCardEmoji}>
+              {TYPE_EMOJI[selectedPlace.type] || '🚽'}
+            </Text>
+            <View style={styles.placeCardInfo}>
+              <Text style={styles.placeCardName} numberOfLines={1}>
+                {selectedPlace.name}
+              </Text>
+              <Text style={styles.placeCardRating}>
+                {selectedPlace.reviewCount > 0
+                  ? `${'💩'.repeat(Math.round(selectedPlace.avgRating))} ${selectedPlace.avgRating.toFixed(1)} (${selectedPlace.reviewCount})`
+                  : 'Sin valorar'}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.placeCardButtons}>
+            <TouchableOpacity
+              style={styles.placeCardBtn}
+              onPress={() => openDirections(selectedPlace.latitude, selectedPlace.longitude)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.placeCardBtnEmoji}>🧭</Text>
+              <Text style={styles.placeCardBtnLabel}>Cómo llegar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.placeCardBtn, styles.placeCardBtnPrimary]}
+              onPress={() => {
+                setSelectedPlace(null);
+                navigation.navigate('Explorar', {
+                  screen: 'PlaceDetail',
+                  params: { place: selectedPlace },
+                });
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.placeCardBtnEmoji}>💩</Text>
+              <Text style={[styles.placeCardBtnLabel, styles.placeCardBtnLabelPrimary]}>
+                Ver opiniones
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -306,14 +351,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   markerRatingText: { fontSize: 11, fontWeight: '800', color: '#FFF' },
-  // ── Callout ──────────────────────────────────────────
-  callout: { width: 220 },
-  calloutContent: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  calloutEmoji: { fontSize: 24 },
-  calloutInfo: { flex: 1 },
-  calloutName: { fontSize: 14, fontWeight: '700', color: '#2C3E50' },
-  calloutRating: { fontSize: 12, color: '#8B6914', marginTop: 2 },
-  calloutTap: { fontSize: 11, color: '#999', marginTop: 6, textAlign: 'center' },
+  markerSelected: { borderWidth: 3, borderColor: '#F0D060' },
+  // ── Tarjeta de sitio seleccionado ────────────────────
+  placeCard: {
+    position: 'absolute',
+    bottom: 20,
+    left: 16,
+    right: 16,
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 14,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+  },
+  placeCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
+  placeCardEmoji: { fontSize: 28 },
+  placeCardInfo: { flex: 1 },
+  placeCardName: { fontSize: 15, fontWeight: '700', color: '#2C3E50' },
+  placeCardRating: { fontSize: 12, color: '#8B6914', marginTop: 2 },
+  placeCardButtons: { flexDirection: 'row', gap: 10 },
+  placeCardBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#F5F0E1',
+  },
+  placeCardBtnPrimary: { backgroundColor: '#8B6914' },
+  placeCardBtnEmoji: { fontSize: 16 },
+  placeCardBtnLabel: { fontSize: 13, fontWeight: '600', color: '#2C3E50' },
+  placeCardBtnLabelPrimary: { color: '#FFF' },
   // ── Botones y badge ──────────────────────────────────
   centerBtn: {
     position: 'absolute',

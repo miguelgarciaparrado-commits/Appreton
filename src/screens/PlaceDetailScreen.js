@@ -8,6 +8,8 @@ import {
   SafeAreaView,
   ActivityIndicator,
   Alert,
+  Linking,
+  Platform,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import {
@@ -26,6 +28,18 @@ const TYPE_LABELS = {
   gasolinera: '⛽ Gasolinera',
   centro_comercial: '🛒 Centro Comercial',
 };
+
+function openDirections(latitude, longitude) {
+  const url = Platform.select({
+    ios: `maps:0,0?daddr=${latitude},${longitude}`,
+    android: `google.navigation:q=${latitude},${longitude}`,
+  });
+  Linking.openURL(url).catch(() => {
+    Linking.openURL(
+      `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`,
+    );
+  });
+}
 
 export default function PlaceDetailScreen({ route, navigation }) {
   const { place } = route.params;
@@ -138,6 +152,15 @@ export default function PlaceDetailScreen({ route, navigation }) {
         <Text style={styles.type}>{TYPE_LABELS[place.type] || '🏢 Otro'}</Text>
         <Text style={styles.name}>{place.name}</Text>
         <Text style={styles.address}>{place.address}</Text>
+        {place.latitude && place.longitude && (
+          <TouchableOpacity
+            style={styles.directionsBtn}
+            onPress={() => openDirections(place.latitude, place.longitude)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.directionsBtnText}>🧭 Cómo llegar</Text>
+          </TouchableOpacity>
+        )}
         {totalReviews > 0 ? (
           <View style={styles.ratingRow}>
             <PoopRating rating={avgRating} size={28} readonly />
@@ -285,7 +308,17 @@ const styles = StyleSheet.create({
   },
   type: { fontSize: 14, color: '#F5DEB3', marginBottom: 4 },
   name: { fontSize: 24, fontWeight: 'bold', color: '#FFF', marginBottom: 4 },
-  address: { fontSize: 14, color: '#F5DEB3', marginBottom: 12 },
+  address: { fontSize: 14, color: '#F5DEB3', marginBottom: 8 },
+  directionsBtn: {
+    flexDirection: 'row',
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 16,
+    marginBottom: 10,
+  },
+  directionsBtnText: { color: '#FFF', fontWeight: '600', fontSize: 13 },
   ratingRow: { flexDirection: 'row', alignItems: 'center' },
   ratingText: { fontSize: 20, fontWeight: 'bold', color: '#FFF', marginLeft: 10 },
   noRatingText: { fontSize: 14, color: '#F5DEB3', fontStyle: 'italic' },
