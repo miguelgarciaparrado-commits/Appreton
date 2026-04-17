@@ -6,6 +6,7 @@ import {
   StyleSheet,
   SafeAreaView,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
@@ -27,7 +28,7 @@ function getDistanceKm(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
-export default function RankingScreen() {
+export default function RankingScreen({ navigation }) {
   const [nearbyPlaces, setNearbyPlaces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [locationError, setLocationError] = useState(null);
@@ -81,7 +82,14 @@ export default function RankingScreen() {
   }
 
   const renderItem = ({ item, index }) => (
-    <View style={styles.card}>
+    <TouchableOpacity
+      style={styles.card}
+      activeOpacity={0.85}
+      onPress={() => navigation.navigate('Explorar', {
+        screen: 'PlaceDetail',
+        params: { place: item },
+      })}
+    >
       <View style={styles.rank}>
         <Text style={styles.rankText}>
           {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
@@ -101,7 +109,7 @@ export default function RankingScreen() {
           <Text style={styles.distanceText}>{item.distMeters} m</Text>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   return (
