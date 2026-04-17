@@ -13,6 +13,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { getPlaces, getReviews } from '../data/store';
+import { getCurrentUser } from '../data/auth';
 import { fetchNearbyPlaces } from '../data/googlePlaces';
 import { fetchNearbyToiletsOSM } from '../data/osmPlaces';
 import PlaceCard from '../components/PlaceCard';
@@ -72,6 +73,8 @@ export default function HomeScreen({ navigation }) {
   const [locationLoading, setLocationLoading] = useState(true);
   const [locationError, setLocationError] = useState(null);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [streak, setStreak] = useState(0);
+  const [hasReviewedToday, setHasReviewedToday] = useState(false);
   // Dwell detection en foreground:
   // - nearbyCandidate: sitio al que estamos cerca ahora mismo
   // - nearbySince: timestamp de cuándo empezamos a estar cerca
@@ -91,8 +94,20 @@ export default function HomeScreen({ navigation }) {
     useCallback(() => {
       loadAppPlaces();
       getUserLocation();
+      loadStreak();
     }, [])
   );
+
+  async function loadStreak() {
+    try {
+      const user = await getCurrentUser();
+      if (user) {
+        setStreak(user.currentStreak || 0);
+        const today = new Date().toISOString().split('T')[0];
+        setHasReviewedToday(user.lastReviewDate === today);
+      }
+    } catch {}
+  }
 
   async function getUserLocation() {
     try {
@@ -332,6 +347,16 @@ export default function HomeScreen({ navigation }) {
         <Text style={styles.subtitle}>Te cagas? abreme</Text>
       </View>
 
+      {/* Banner de racha */}
+      {streak > 0 && (
+        <View style={styles.streakBanner}>
+          <Text style={styles.streakText}>
+            🔥 Racha de {streak} {streak === 1 ? 'dia' : 'dias'}
+            {hasReviewedToday ? ' — ¡hoy ya opinaste!' : ' — opina hoy para no perderla'}
+          </Text>
+        </View>
+      )}
+
       {/* Banner de dwell detection: aparece cuando llevas >DWELL_SECONDS cerca de un sitio */}
       {nearbyPlace && (
         <NearbyPrompt
@@ -463,6 +488,14 @@ const styles = StyleSheet.create({
   },
   logo: { fontSize: 28, fontWeight: 'bold', color: '#FFF' },
   subtitle: { fontSize: 14, color: '#F5DEB3', marginTop: 2 },
+  streakBanner: {
+    backgroundColor: '#FFF3E0',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFE0B2',
+  },
+  streakText: { fontSize: 13, color: '#E65100', fontWeight: '600', textAlign: 'center' },
   locationBar: {
     backgroundColor: '#FFF9E6',
     paddingHorizontal: 16,
