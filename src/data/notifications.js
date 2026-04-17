@@ -9,12 +9,10 @@ const NOTIFIED_KEY = '@appreton_notified_places';
 const PENDING_KEY = '@appreton_pending_notifications';
 const RECENT_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-export const DWELL_SECONDS = 120;
+export const DWELL_SECONDS = 600;
 export const GEOFENCE_RADIUS_M = 100;
-// ~11 km/h — por encima de esto se considera que vas en vehiculo/bici
-export const SPEED_THRESHOLD_MS = 3;
-// Distancia GPS real maxima al sitio para aceptar el ENTER como valido
-export const MAX_VERIFY_DISTANCE_M = 100;
+export const SPEED_THRESHOLD_MS = 1.5;
+export const MAX_VERIFY_DISTANCE_M = 50;
 
 // Configuración del handler de notificaciones cuando la app está en foreground.
 // Silenciamos las notificaciones del sistema en foreground porque ya mostramos
