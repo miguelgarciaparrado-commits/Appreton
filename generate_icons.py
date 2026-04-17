@@ -1,113 +1,118 @@
-"""Generate a funny poop icon for Appreton app."""
-from PIL import Image, ImageDraw, ImageFont
-import math
+"""Generate Appreton app icons — cute poop centered in adaptive safe zone."""
+from PIL import Image, ImageDraw
 
-def draw_poop_icon(size, bg_color=None):
-    """Draw a cartoon poop emoji icon."""
-    img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
 
-    cx, cy = size // 2, size // 2
-    s = size / 1024  # scale factor
+def draw_poop(draw, cx, cy, scale):
+    """Draw a cute cartoon poop centered at (cx, cy) with given scale."""
+    s = scale / 1024
 
-    # Background circle (optional)
-    if bg_color:
-        draw.ellipse([0, 0, size - 1, size - 1], fill=bg_color)
-
-    # Poop body - brown layered shape
     brown_dark = (101, 67, 33)
     brown_mid = (139, 90, 43)
     brown_light = (160, 110, 60)
 
-    # Base (widest part)
-    base_y = int(620 * s)
-    base_w = int(380 * s)
-    base_h = int(220 * s)
-    draw.ellipse([cx - base_w, base_y - base_h//2, cx + base_w, base_y + base_h//2], fill=brown_dark)
+    # Base (widest)
+    base_y = cy + int(180 * s)
+    bw, bh = int(280 * s), int(160 * s)
+    draw.ellipse([cx - bw, base_y - bh, cx + bw, base_y + bh], fill=brown_dark)
 
-    # Middle section
-    mid_y = int(460 * s)
-    mid_w = int(300 * s)
-    mid_h = int(200 * s)
-    draw.ellipse([cx - mid_w, mid_y - mid_h//2, cx + mid_w, mid_y + mid_h//2], fill=brown_mid)
+    # Middle
+    mid_y = cy + int(40 * s)
+    mw, mh = int(220 * s), int(150 * s)
+    draw.ellipse([cx - mw, mid_y - mh, cx + mw, mid_y + mh], fill=brown_mid)
 
-    # Connect base and middle
-    draw.rectangle([cx - int(280*s), mid_y, cx + int(280*s), base_y], fill=brown_mid)
-    draw.rectangle([cx - int(350*s), int(550*s), cx + int(350*s), base_y], fill=brown_dark)
+    # Connect base ↔ middle
+    draw.rectangle([cx - int(200 * s), mid_y, cx + int(200 * s), base_y], fill=brown_mid)
+    draw.rectangle([cx - int(260 * s), cy + int(110 * s), cx + int(260 * s), base_y], fill=brown_dark)
 
-    # Upper section
-    upper_y = int(340 * s)
-    upper_w = int(220 * s)
-    upper_h = int(180 * s)
-    draw.ellipse([cx - upper_w, upper_y - upper_h//2, cx + upper_w, upper_y + upper_h//2], fill=brown_light)
-
-    # Connect middle and upper
-    draw.rectangle([cx - int(200*s), upper_y, cx + int(200*s), mid_y], fill=brown_mid)
+    # Upper
+    upper_y = cy - int(80 * s)
+    uw, uh = int(160 * s), int(130 * s)
+    draw.ellipse([cx - uw, upper_y - uh, cx + uw, upper_y + uh], fill=brown_light)
+    draw.rectangle([cx - int(150 * s), upper_y, cx + int(150 * s), mid_y], fill=brown_mid)
 
     # Top swirl
-    top_y = int(230 * s)
-    top_w = int(130 * s)
-    top_h = int(140 * s)
-    draw.ellipse([cx - top_w, top_y - top_h//2, cx + top_w, top_y + top_h//2], fill=brown_light)
+    top_y = cy - int(190 * s)
+    tw, th = int(100 * s), int(100 * s)
+    draw.ellipse([cx - tw, top_y - th, cx + tw, top_y + th], fill=brown_light)
 
-    # Tip (the curl)
-    tip_y = int(175 * s)
-    tip_w = int(70 * s)
-    tip_h = int(80 * s)
-    draw.ellipse([cx - int(20*s) - tip_w, tip_y - tip_h//2, cx - int(20*s) + tip_w, tip_y + tip_h//2], fill=brown_light)
+    # Tip curl
+    tip_y = cy - int(260 * s)
+    tiw, tih = int(55 * s), int(60 * s)
+    draw.ellipse([cx - int(15 * s) - tiw, tip_y - tih,
+                  cx - int(15 * s) + tiw, tip_y + tih], fill=brown_light)
 
-    # Eyes - white circles with black pupils
-    eye_y = int(420 * s)
-    eye_spacing = int(120 * s)
-    eye_r = int(50 * s)
-    pupil_r = int(25 * s)
+    # Eyes
+    eye_y = cy + int(10 * s)
+    esp = int(90 * s)
+    er = int(42 * s)
+    pr = int(22 * s)
+    shr = int(9 * s)
 
-    # Left eye
-    draw.ellipse([cx - eye_spacing - eye_r, eye_y - eye_r, cx - eye_spacing + eye_r, eye_y + eye_r], fill='white')
-    draw.ellipse([cx - eye_spacing - pupil_r + int(8*s), eye_y - pupil_r, cx - eye_spacing + pupil_r + int(8*s), eye_y + pupil_r], fill='black')
-    # Eye shine
-    shine_r = int(10 * s)
-    draw.ellipse([cx - eye_spacing - pupil_r + int(15*s), eye_y - pupil_r + int(5*s), cx - eye_spacing - pupil_r + int(15*s) + shine_r, eye_y - pupil_r + int(5*s) + shine_r], fill='white')
+    for side in (-1, 1):
+        ex = cx + side * esp
+        draw.ellipse([ex - er, eye_y - er, ex + er, eye_y + er], fill='white')
+        px = ex + int(6 * s)
+        draw.ellipse([px - pr, eye_y - pr, px + pr, eye_y + pr], fill=(50, 50, 50))
+        draw.ellipse([px - pr + int(8 * s), eye_y - pr + int(4 * s),
+                      px - pr + int(8 * s) + shr, eye_y - pr + int(4 * s) + shr],
+                     fill='white')
 
-    # Right eye
-    draw.ellipse([cx + eye_spacing - eye_r, eye_y - eye_r, cx + eye_spacing + eye_r, eye_y + eye_r], fill='white')
-    draw.ellipse([cx + eye_spacing - pupil_r + int(8*s), eye_y - pupil_r, cx + eye_spacing + pupil_r + int(8*s), eye_y + pupil_r], fill='black')
-    # Eye shine
-    draw.ellipse([cx + eye_spacing - pupil_r + int(15*s), eye_y - pupil_r + int(5*s), cx + eye_spacing - pupil_r + int(15*s) + shine_r, eye_y - pupil_r + int(5*s) + shine_r], fill='white')
-
-    # Smile - a happy curve
-    smile_y = int(520 * s)
-    smile_w = int(100 * s)
-    smile_h = int(60 * s)
-    # Draw smile as arc
-    draw.arc([cx - smile_w, smile_y - smile_h, cx + smile_w, smile_y + smile_h], 0, 180, fill='white', width=int(12*s))
+    # Smile
+    smy = cy + int(90 * s)
+    smw, smh = int(75 * s), int(45 * s)
+    draw.arc([cx - smw, smy - smh, cx + smw, smy + smh],
+             0, 180, fill='white', width=max(1, int(10 * s)))
 
     # Rosy cheeks
-    cheek_r = int(35 * s)
-    cheek_y = int(500 * s)
-    cheek_x = int(200 * s)
-    draw.ellipse([cx - cheek_x - cheek_r, cheek_y - cheek_r, cx - cheek_x + cheek_r, cheek_y + cheek_r], fill=(255, 180, 180, 120))
-    draw.ellipse([cx + cheek_x - cheek_r, cheek_y - cheek_r, cx + cheek_x + cheek_r, cheek_y + cheek_r], fill=(255, 180, 180, 120))
+    chr = int(28 * s)
+    chy = cy + int(70 * s)
+    chx = int(150 * s)
+    draw.ellipse([cx - chx - chr, chy - chr, cx - chx + chr, chy + chr],
+                 fill=(255, 180, 180, 100))
+    draw.ellipse([cx + chx - chr, chy - chr, cx + chx + chr, chy + chr],
+                 fill=(255, 180, 180, 100))
 
+
+def make_icon(size, bg_color=None, safe_zone_pct=1.0):
+    img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+
+    if bg_color:
+        draw.ellipse([0, 0, size - 1, size - 1], fill=bg_color)
+
+    poop_scale = size * safe_zone_pct
+    draw_poop(draw, size // 2, size // 2 + int(size * 0.02), poop_scale)
     return img
 
 
-# Generate all required icons
-icons = {
-    'assets/icon.png': (1024, '#8B6914'),
-    'assets/adaptive-icon.png': (1024, None),
-    'assets/splash-icon.png': (1024, '#8B6914'),
-    'assets/favicon.png': (196, '#8B6914'),
-}
+BG = (139, 105, 20, 255)
 
-for path, (size, bg) in icons.items():
-    bg_tuple = None
-    if bg:
-        # Convert hex to RGB
-        bg = bg.lstrip('#')
-        bg_tuple = tuple(int(bg[i:i+2], 16) for i in (0, 2, 4)) + (255,)
-    img = draw_poop_icon(size, bg_tuple)
-    img.save(path)
-    print(f'Generated {path} ({size}x{size})')
+# Adaptive foreground: content in inner 66% (safe zone)
+fg = make_icon(1024, bg_color=None, safe_zone_pct=0.55)
+fg.save('assets/adaptive-icon.png')
+print('adaptive-icon.png (foreground, safe zone 55%)')
 
-print('All icons generated!')
+# Also save as android-icon-foreground
+fg.save('assets/android-icon-foreground.png')
+print('android-icon-foreground.png')
+
+# Standard icon (with background, full)
+icon = make_icon(1024, bg_color=BG, safe_zone_pct=0.75)
+icon.save('assets/icon.png')
+print('icon.png (1024x1024 with bg)')
+
+# Copy as logo
+icon.save('assets/logo-appreton.png')
+icon.resize((512, 512), Image.LANCZOS).save('assets/logo-appreton-512.png')
+print('logo-appreton.png + 512')
+
+# Splash icon
+icon.save('assets/splash-icon.png')
+print('splash-icon.png')
+
+# Favicon
+fav = make_icon(196, bg_color=BG, safe_zone_pct=0.75)
+fav.save('assets/favicon.png')
+print('favicon.png (196x196)')
+
+print('\nAll icons generated!')
