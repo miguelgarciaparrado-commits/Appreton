@@ -68,6 +68,7 @@
       "./plugins/set-java-home",
       "./plugins/patch-async-storage",
       "./plugins/patch-expo-modules",
+      "./plugins/signing-config",
       [
         "expo-build-properties",
         {

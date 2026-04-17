@@ -33,6 +33,12 @@ yarn-error.*
 # local env files
 .env*.local
 
+# keystore y credenciales de firma
+*.keystore
+*.jks
+keystore.properties
+google-play-key.json
+
 # typescript
 *.tsbuildinfo
 
