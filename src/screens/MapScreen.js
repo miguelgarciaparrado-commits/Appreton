@@ -34,7 +34,7 @@ const TYPE_EMOJI = {
   wc_publico: '🚻',
 };
 
-const RADIUS_M = 600;
+const RADIUS_M = 800;
 
 function openDirections(latitude, longitude) {
   const url = Platform.select({

@@ -131,8 +131,8 @@ export default function HomeScreen({ navigation }) {
     setGoogleLoading(true);
     try {
       const [places, toilets] = await Promise.all([
-        fetchNearbyPlaces(lat, lon, 600),
-        fetchNearbyToiletsOSM(lat, lon, 600),
+        fetchNearbyPlaces(lat, lon, 800),
+        fetchNearbyToiletsOSM(lat, lon, 800),
       ]);
       logBusquedaBano('auto');
       setGooglePlaces(places);
@@ -300,7 +300,7 @@ export default function HomeScreen({ navigation }) {
       }
       return { ...p, distance: null, distanceText: null };
     })
-    .filter((p) => !userLocation || p.distance === null || p.distance <= 0.6);
+    .filter((p) => !userLocation || p.distance === null || p.distance <= 0.8);
 
   const filtered = placesWithDistance
     .filter((p) => filter === 'todos' || p.type === filter)
@@ -364,7 +364,7 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.locationIcon}>📍</Text>
             <Text style={styles.locationTextOk}>
               {googlePlaces.length > 0
-                ? `${filtered.length} sitios en 600 m — Google Places activo`
+                ? `${filtered.length} sitios en 800 m — Google Places activo`
                 : 'Ubicacion activa · Añade tu clave Google para más sitios'}
             </Text>
           </View>
@@ -441,7 +441,7 @@ export default function HomeScreen({ navigation }) {
               <View style={styles.empty}>
                 <Text style={styles.emptyIcon}>🚽</Text>
                 <Text style={styles.emptyText}>
-                  {locationError ? 'Activa la ubicación para ver sitios cercanos' : 'No se encontraron sitios en 600 m'}
+                  {locationError ? 'Activa la ubicación para ver sitios cercanos' : 'No se encontraron sitios en 800 m'}
                 </Text>
                 <Text style={styles.emptySubtext}>Sugiere uno en la pestaña Sugerir</Text>
               </View>
