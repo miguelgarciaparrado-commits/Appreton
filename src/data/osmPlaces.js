@@ -3,7 +3,10 @@ import { storageGet, storageSet } from './storage';
 const OSM_CACHE_KEY = '@appreton_osm_cache';
 const OSM_CACHE_TTL = 24 * 60 * 60 * 1000;
 const OSM_CACHE_DISTANCE_THRESHOLD = 500;
-const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+const OVERPASS_URLS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+];
 
 function distanceMeters(lat1, lon1, lat2, lon2) {
   const R = 6371000;
@@ -46,16 +49,27 @@ function normalizeOSMPlace(node) {
 
 async function queryOverpass(latitude, longitude, radiusMeters) {
   const query = `[out:json][timeout:10];(node["amenity"="toilets"](around:${radiusMeters},${latitude},${longitude}););out body;`;
+  const body = `data=${encodeURIComponent(query)}`;
 
-  const response = await fetch(OVERPASS_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `data=${encodeURIComponent(query)}`,
-  });
-
-  if (!response.ok) throw new Error(`Overpass HTTP ${response.status}`);
-  const json = await response.json();
-  return (json.elements || []).filter((e) => e.type === 'node' && e.lat && e.lon);
+  for (const url of OVERPASS_URLS) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 12000);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body,
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (!response.ok) continue;
+      const json = await response.json();
+      return (json.elements || []).filter((e) => e.type === 'node' && e.lat && e.lon);
+    } catch {
+      continue;
+    }
+  }
+  return [];
 }
 
 async function getCache() {

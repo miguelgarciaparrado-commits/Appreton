@@ -206,8 +206,8 @@ export default function MapScreen({ navigation }) {
           const typeColor = TYPE_COLOR[p.type] || '#8B6914';
           const emoji = TYPE_EMOJI[p.type] || '🚽';
           const isSelected = selectedPlace?.id === p.id;
-          const poops = p.reviewCount > 0
-            ? '💩'.repeat(Math.max(1, Math.round(p.avgRating)))
+          const ratingLabel = p.reviewCount > 0
+            ? `💩${p.avgRating.toFixed(1)}`
             : '?';
           return (
             <Marker
@@ -226,7 +226,7 @@ export default function MapScreen({ navigation }) {
                   <Text style={styles.markerEmoji}>{emoji}</Text>
                 </View>
                 <View style={styles.markerRating}>
-                  <Text style={styles.markerRatingText}>{poops}</Text>
+                  <Text style={styles.markerRatingText}>{ratingLabel}</Text>
                 </View>
               </View>
             </Marker>
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#5D4E37',
     alignItems: 'center',
   },
-  markerRatingText: { fontSize: 9, letterSpacing: -1 },
+  markerRatingText: { fontSize: 10, color: '#FFF', fontWeight: '700' },
   markerSelected: { borderWidth: 3, borderColor: '#F0D060' },
   // ── Tarjeta de sitio seleccionado ────────────────────
   placeCard: {
