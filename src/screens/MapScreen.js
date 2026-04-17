@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { logComoLlegar } from '../data/analytics';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { getPlaces, getReviews } from '../data/store';
@@ -263,7 +264,7 @@ export default function MapScreen({ navigation }) {
           <View style={styles.placeCardButtons}>
             <TouchableOpacity
               style={styles.placeCardBtn}
-              onPress={() => openDirections(selectedPlace.latitude, selectedPlace.longitude)}
+              onPress={() => { logComoLlegar(selectedPlace.id, selectedPlace.name); openDirections(selectedPlace.latitude, selectedPlace.longitude); }}
               activeOpacity={0.8}
             >
               <Text style={styles.placeCardBtnEmoji}>🧭</Text>

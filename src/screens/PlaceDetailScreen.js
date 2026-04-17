@@ -22,6 +22,7 @@ import {
 } from '../data/store';
 import PoopRating from '../components/PoopRating';
 import AmenitiesBadges from '../components/AmenitiesBadges';
+import { logBanoVisualizado, logComoLlegar, logLikeOpinion } from '../data/analytics';
 
 const TYPE_LABELS = {
   bar: '🍺 Bar',
@@ -44,6 +45,7 @@ function openDirections(latitude, longitude) {
 
 export default function PlaceDetailScreen({ route, navigation }) {
   const { place } = route.params;
+  logBanoVisualizado(place.id, place.name);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -74,6 +76,7 @@ export default function PlaceDetailScreen({ route, navigation }) {
 
   async function handleLike(reviewId) {
     const alreadyLiked = !!likedMap[reviewId];
+    if (!alreadyLiked) logLikeOpinion(reviewId);
     const delta = alreadyLiked ? -1 : 1;
 
     // Actualizacion optimista
@@ -167,7 +170,7 @@ export default function PlaceDetailScreen({ route, navigation }) {
         {place.latitude && place.longitude && (
           <TouchableOpacity
             style={styles.directionsBtn}
-            onPress={() => openDirections(place.latitude, place.longitude)}
+            onPress={() => { logComoLlegar(place.id, place.name); openDirections(place.latitude, place.longitude); }}
             activeOpacity={0.8}
           >
             <Text style={styles.directionsBtnText}>🧭 Cómo llegar</Text>

@@ -16,6 +16,7 @@ import {
 import * as Location from 'expo-location';
 import PoopRating from '../components/PoopRating';
 import { upsertReview, getUserReviewForPlace } from '../data/store';
+import { logBanoReportado } from '../data/analytics';
 
 const EXTRAS_OPTIONS = [
   { icon: '💨', label: 'Secador de manos' },
@@ -138,6 +139,7 @@ export default function AddReviewScreen({ route, navigation }) {
         msg += `\n\n🎉 Has subido a nivel ${result.levelInfo.level}: ${result.levelInfo.title}!`;
       }
     }
+    logBanoReportado(rating, place.address || '');
     Alert.alert('Gracias! 💩', msg, [
       { text: 'OK', onPress: () => navigation.goBack() },
     ]);

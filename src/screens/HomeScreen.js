@@ -23,6 +23,7 @@ import {
   shouldNotifyForPlace,
   markPlaceNotified,
 } from '../data/notifications';
+import { logBusquedaBano, logFiltroAplicado } from '../data/analytics';
 
 const PROXIMITY_RADIUS_M = 30; // a qué distancia consideramos "dentro"
 
@@ -127,6 +128,7 @@ export default function HomeScreen({ navigation }) {
     setGoogleLoading(true);
     try {
       const places = await fetchNearbyPlaces(lat, lon, 600);
+      logBusquedaBano('auto');
       setGooglePlaces(places);
       // Cachea para que la geofence task pueda buscar nombres
       await cacheGooglePlacesForTask(places);
@@ -395,7 +397,7 @@ export default function HomeScreen({ navigation }) {
           renderItem={({ item }) => (
             <TouchableOpacity
               style={[styles.filterBtn, filter === item.key && styles.filterActive]}
-              onPress={() => setFilter(item.key)}
+              onPress={() => { setFilter(item.key); logFiltroAplicado(item.key); }}
             >
               <Text style={[styles.filterText, filter === item.key && styles.filterTextActive]}>
                 {item.label}

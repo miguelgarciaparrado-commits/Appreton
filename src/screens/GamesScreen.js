@@ -8,6 +8,7 @@ import {
   ScrollView,
 } from 'react-native';
 import GameScreen from './GameScreen';
+import { logJuegoIniciado } from '../data/analytics';
 
 export default function GamesScreen({ navigation }) {
   const [tocaLaCacaVisible, setTocaLaCacaVisible] = useState(false);
@@ -22,7 +23,7 @@ export default function GamesScreen({ navigation }) {
         <TouchableOpacity
           style={styles.card}
           activeOpacity={0.85}
-          onPress={() => navigation.navigate('CagatriviaGame')}
+          onPress={() => { logJuegoIniciado('cagatrivia'); navigation.navigate('CagatriviaGame'); }}
         >
           <View style={[styles.cardIcon, { backgroundColor: '#8E44AD' }]}>
             <Text style={styles.cardEmoji}>🧠</Text>
@@ -39,7 +40,7 @@ export default function GamesScreen({ navigation }) {
         <TouchableOpacity
           style={styles.card}
           activeOpacity={0.85}
-          onPress={() => setTocaLaCacaVisible(true)}
+          onPress={() => { logJuegoIniciado('toca_la_caca'); setTocaLaCacaVisible(true); }}
         >
           <View style={[styles.cardIcon, { backgroundColor: '#E67E22' }]}>
             <Text style={styles.cardEmoji}>💩</Text>

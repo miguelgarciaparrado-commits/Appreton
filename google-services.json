@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "37060093629",
+    "project_id": "appreton-16797",
+    "storage_bucket": "appreton-16797.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:37060093629:android:d1f92f3ff08f91e514b9d4",
+        "android_client_info": {
+          "package_name": "com.appreton.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCT6MOYR2EI__tKwi0QTqC5zfoRJ58ZYLI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
