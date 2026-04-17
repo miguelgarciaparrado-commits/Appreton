@@ -56,6 +56,7 @@ function rowToReview(row) {
     date: row.date,
     likes: row.likes || 0,
     gender: row.gender || null,
+    authorName: row.author_name || null,
   };
 }
 
@@ -374,6 +375,7 @@ export async function upsertReview(review, context = {}) {
       required_order: review.requiredOrder ?? null,
       extras: review.extras || [],
       gender: currentUser.gender || null,
+      author_name: currentUser.displayName || null,
     }).eq('id', existing.id);
 
     if (updErr) {
@@ -419,6 +421,7 @@ export async function upsertReview(review, context = {}) {
     has_brush: review.hasBrush, required_order: review.requiredOrder ?? null,
     extras: review.extras || [], date: today,
     gender: currentUser.gender || null,
+    author_name: currentUser.displayName || null,
   });
 
   if (insertError) {

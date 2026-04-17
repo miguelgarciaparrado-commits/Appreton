@@ -251,12 +251,14 @@ export default function PlaceDetailScreen({ route, navigation }) {
     const genderIcon = item.gender === 'hombre' ? '👨' : item.gender === 'mujer' ? '👩' : null;
     return (
       <View style={styles.reviewCard}>
-        <View style={styles.reviewTop}>
-          <View style={styles.reviewTopLeft}>
-            {genderIcon && <Text style={styles.genderIcon}>{genderIcon}</Text>}
-            <PoopRating rating={item.rating} size={18} readonly />
-          </View>
+        <View style={styles.reviewAuthorRow}>
+          <Text style={styles.reviewAuthor} numberOfLines={1}>
+            {genderIcon ? `${genderIcon} ` : ''}{item.authorName || 'Anonimo'}
+          </Text>
           <Text style={styles.reviewDate}>{item.date}</Text>
+        </View>
+        <View style={styles.reviewTop}>
+          <PoopRating rating={item.rating} size={18} readonly />
         </View>
         <Text style={styles.reviewComment}>{item.comment}</Text>
         <AmenitiesBadges review={item} />
@@ -416,9 +418,9 @@ const styles = StyleSheet.create({
     padding: 14,
     elevation: 1,
   },
-  reviewTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  reviewTopLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  genderIcon: { fontSize: 18 },
+  reviewAuthorRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  reviewAuthor: { fontSize: 13, fontWeight: '700', color: '#8B6914', flex: 1, marginRight: 8 },
+  reviewTop: { flexDirection: 'row', alignItems: 'center' },
   reviewDate: { fontSize: 12, color: '#999' },
   reviewComment: { fontSize: 14, color: '#2C3E50', marginTop: 8, lineHeight: 20 },
   reviewFooter: {
