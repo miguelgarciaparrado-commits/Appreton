@@ -248,10 +248,14 @@ export default function PlaceDetailScreen({ route, navigation }) {
   const renderReview = ({ item }) => {
     const isLiked = !!likedMap[item.id];
     const likeCount = item.likes || 0;
+    const genderIcon = item.gender === 'hombre' ? '👨' : item.gender === 'mujer' ? '👩' : null;
     return (
       <View style={styles.reviewCard}>
         <View style={styles.reviewTop}>
-          <PoopRating rating={item.rating} size={18} readonly />
+          <View style={styles.reviewTopLeft}>
+            {genderIcon && <Text style={styles.genderIcon}>{genderIcon}</Text>}
+            <PoopRating rating={item.rating} size={18} readonly />
+          </View>
           <Text style={styles.reviewDate}>{item.date}</Text>
         </View>
         <Text style={styles.reviewComment}>{item.comment}</Text>
@@ -413,6 +417,8 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   reviewTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  reviewTopLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  genderIcon: { fontSize: 18 },
   reviewDate: { fontSize: 12, color: '#999' },
   reviewComment: { fontSize: 14, color: '#2C3E50', marginTop: 8, lineHeight: 20 },
   reviewFooter: {
