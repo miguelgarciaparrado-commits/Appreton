@@ -29,6 +29,7 @@ const TYPE_LABELS = {
   restaurante: '🍽️ Restaurante',
   gasolinera: '⛽ Gasolinera',
   centro_comercial: '🛒 Centro Comercial',
+  wc_publico: '🚻 WC Publico',
 };
 
 function openDirections(latitude, longitude) {

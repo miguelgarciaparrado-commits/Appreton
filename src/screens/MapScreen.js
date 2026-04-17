@@ -16,12 +16,14 @@ import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { getPlaces, getReviews } from '../data/store';
 import { fetchNearbyPlaces } from '../data/googlePlaces';
+import { fetchNearbyToiletsOSM } from '../data/osmPlaces';
 
 const TYPE_COLOR = {
   bar: '#E67E22',
   restaurante: '#E74C3C',
   gasolinera: '#3498DB',
   centro_comercial: '#9B59B6',
+  wc_publico: '#16A085',
 };
 
 const TYPE_EMOJI = {
@@ -29,6 +31,7 @@ const TYPE_EMOJI = {
   restaurante: '🍽️',
   gasolinera: '⛽',
   centro_comercial: '🛒',
+  wc_publico: '🚻',
 };
 
 const RADIUS_M = 600;
@@ -88,18 +91,18 @@ export default function MapScreen({ navigation }) {
       setLocationError(null);
 
       // Carga en paralelo: sitios y TODAS las reviews (para calcular medias)
-      const [appPlaces, googlePlaces, allReviews] = await Promise.all([
+      const [appPlaces, googlePlaces, osmToilets, allReviews] = await Promise.all([
         getPlaces(),
         fetchNearbyPlaces(coords.latitude, coords.longitude, RADIUS_M),
+        fetchNearbyToiletsOSM(coords.latitude, coords.longitude, RADIUS_M),
         getReviews(),
       ]);
 
-      // Dedupe por id
       const appIds = new Set(appPlaces.map((p) => p.id));
-      const merged = [
-        ...appPlaces,
-        ...googlePlaces.filter((gp) => !appIds.has(gp.id)),
-      ];
+      const googleOnly = googlePlaces.filter((gp) => !appIds.has(gp.id));
+      const knownIds = new Set([...appIds, ...googleOnly.map((g) => g.id)]);
+      const osmOnly = osmToilets.filter((op) => !knownIds.has(op.id));
+      const merged = [...appPlaces, ...googleOnly, ...osmOnly];
       setRawPlaces(merged.filter((p) => p.latitude && p.longitude));
       setReviews(allReviews);
     } catch {

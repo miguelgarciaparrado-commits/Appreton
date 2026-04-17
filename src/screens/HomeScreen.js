@@ -14,6 +14,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { getPlaces, getReviews } from '../data/store';
 import { fetchNearbyPlaces } from '../data/googlePlaces';
+import { fetchNearbyToiletsOSM } from '../data/osmPlaces';
 import PlaceCard from '../components/PlaceCard';
 import NearbyPrompt from '../components/NearbyPrompt';
 import {
@@ -33,6 +34,7 @@ const FILTERS = [
   { key: 'restaurante', label: '🍽️ Restaurantes' },
   { key: 'gasolinera', label: '⛽ Gasolineras' },
   { key: 'centro_comercial', label: '🛒 Centros' },
+  { key: 'wc_publico', label: '🚻 WC' },
 ];
 
 const SORT_OPTIONS = [
@@ -61,6 +63,7 @@ function formatDistance(km) {
 export default function HomeScreen({ navigation }) {
   const [appPlaces, setAppPlaces] = useState([]);
   const [googlePlaces, setGooglePlaces] = useState([]);
+  const [osmPlaces, setOsmPlaces] = useState([]);
   const [allReviews, setAllReviews] = useState([]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('todos');
@@ -127,9 +130,13 @@ export default function HomeScreen({ navigation }) {
   async function loadGooglePlaces(lat, lon) {
     setGoogleLoading(true);
     try {
-      const places = await fetchNearbyPlaces(lat, lon, 600);
+      const [places, toilets] = await Promise.all([
+        fetchNearbyPlaces(lat, lon, 600),
+        fetchNearbyToiletsOSM(lat, lon, 600),
+      ]);
       logBusquedaBano('auto');
       setGooglePlaces(places);
+      setOsmPlaces(toilets);
       // Cachea para que la geofence task pueda buscar nombres
       await cacheGooglePlacesForTask(places);
       // Registra los 20 más cercanos como regiones de geofence
@@ -272,11 +279,12 @@ export default function HomeScreen({ navigation }) {
   // App places (including those created from Google results) take priority
   const mergedPlaces = React.useMemo(() => {
     const appIds = new Set(appPlaces.map((p) => p.id));
-    // Google places that don't yet exist in the app DB
     const googleOnly = googlePlaces.filter((gp) => !appIds.has(gp.id));
-    return [...appPlaces, ...googleOnly].map(withComputedRating);
+    const knownIds = new Set([...appIds, ...googleOnly.map((g) => g.id)]);
+    const osmOnly = osmPlaces.filter((op) => !knownIds.has(op.id));
+    return [...appPlaces, ...googleOnly, ...osmOnly].map(withComputedRating);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appPlaces, googlePlaces, reviewsByPlace]);
+  }, [appPlaces, googlePlaces, osmPlaces, reviewsByPlace]);
 
   // Add distance, filter to 600 m
   const placesWithDistance = mergedPlaces
