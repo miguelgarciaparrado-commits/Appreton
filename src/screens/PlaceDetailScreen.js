@@ -248,7 +248,7 @@ export default function PlaceDetailScreen({ route, navigation }) {
   const renderReview = ({ item }) => {
     const isLiked = !!likedMap[item.id];
     const likeCount = item.likes || 0;
-    const genderIcon = item.gender === 'hombre' ? '👨' : item.gender === 'mujer' ? '👩' : null;
+    const genderIcon = item.gender === 'hombre' ? '🚹' : item.gender === 'mujer' ? '🚺' : null;
     return (
       <View style={styles.reviewCard}>
         <View style={styles.reviewTop}>
