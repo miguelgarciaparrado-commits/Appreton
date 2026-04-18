@@ -133,7 +133,8 @@ export async function getPlaces() {
 
 export async function getReviews(placeId) {
   try {
-    let query = supabase.from('reviews').select('*');
+    let query = supabase.from('reviews').select('*')
+      .or('moderation_status.eq.visible,moderation_status.is.null');
     if (placeId) query = query.eq('place_id', placeId);
     // Ordenar por date (columna que insertamos nosotros, created_at puede no existir)
     const { data, error } = await query.order('date', { ascending: false });
@@ -310,7 +311,8 @@ export async function getUserReviewForPlace(placeId) {
 
 async function refreshPlaceAggregates(placeId) {
   const { data: allReviews } = await supabase
-    .from('reviews').select('rating').eq('place_id', placeId);
+    .from('reviews').select('rating').eq('place_id', placeId)
+    .or('moderation_status.eq.visible,moderation_status.is.null');
   if (allReviews && allReviews.length > 0) {
     const avg = allReviews.reduce((s, r) => s + r.rating, 0) / allReviews.length;
     await supabase.from('places').update({

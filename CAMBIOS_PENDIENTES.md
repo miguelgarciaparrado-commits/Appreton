@@ -116,6 +116,15 @@ Acumula todos los fixes y features desde la 1.1.0:
   Plenoil, etc.) — no tienen WC.
 - **Sin supermercados**: solo shopping_mall y department_store.
 
+- **Moderacion automatica de reseñas**: el extractor evalua los flags
+  de cada opinion. Si detecta `offensive_language`, `possible_spam` o
+  `off_topic`, marca la review como `pending_review` y deja de ser
+  visible para los usuarios. El admin revisa manualmente en Supabase
+  Dashboard → Table Editor → reviews → filtrar por
+  `moderation_status = 'pending_review'`. Para aprobar: cambiar a
+  `visible`. Para ocultar definitivamente: cambiar a `hidden`.
+  Las reviews sin flags quedan `visible` automaticamente.
+
 ### Branding
 - **Logo oficial** de la app: caca cute con APPreton debajo, en
   assets/icon.png, splash-icon.png, adaptive-icon.png, favicon.png.

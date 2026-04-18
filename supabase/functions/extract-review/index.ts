@@ -187,7 +187,13 @@ Deno.serve(async (req) => {
       throw new Error("Invalid extraction schema");
     }
 
-    // 5. Save successful extraction
+    // 5. Determine moderation status based on flags
+    const flagsToModerate = ["offensive_language", "possible_spam", "off_topic"];
+    const needsReview = Array.isArray(extraction.flags) &&
+      extraction.flags.some((f: string) => flagsToModerate.includes(f));
+    const moderationStatus = needsReview ? "pending_review" : "visible";
+
+    // 6. Save successful extraction
     await supabase
       .from("reviews")
       .update({
@@ -196,11 +202,12 @@ Deno.serve(async (req) => {
         extraction_version: "v1",
         extraction_status: "done",
         extraction_error: null,
+        moderation_status: moderationStatus,
       })
       .eq("id", reviewId);
 
     return new Response(
-      JSON.stringify({ status: "done", extraction }),
+      JSON.stringify({ status: "done", moderation: moderationStatus, extraction }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {
