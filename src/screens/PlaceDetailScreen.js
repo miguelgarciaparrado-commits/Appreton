@@ -262,6 +262,15 @@ export default function PlaceDetailScreen({ route, navigation }) {
         </View>
         <Text style={styles.reviewComment}>{item.comment}</Text>
         <AmenitiesBadges review={item} />
+        {item.extractionTags?.length > 0 && (
+          <View style={styles.tagsRow}>
+            {item.extractionTags.map((tag, i) => (
+              <View key={i} style={styles.tagChip}>
+                <Text style={styles.tagText}>{tag}</Text>
+              </View>
+            ))}
+          </View>
+        )}
         <View style={styles.reviewFooter}>
           <TouchableOpacity
             style={[styles.likeBtn, isLiked && styles.likeBtnActive]}
@@ -423,6 +432,9 @@ const styles = StyleSheet.create({
   reviewTop: { flexDirection: 'row', alignItems: 'center' },
   reviewDate: { fontSize: 12, color: '#999' },
   reviewComment: { fontSize: 14, color: '#2C3E50', marginTop: 8, lineHeight: 20 },
+  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  tagChip: { backgroundColor: '#EBF5FB', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  tagText: { fontSize: 11, color: '#2980B9', fontWeight: '600' },
   reviewFooter: {
     flexDirection: 'row',
     justifyContent: 'flex-end',

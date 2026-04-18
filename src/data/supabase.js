@@ -8,3 +8,14 @@ const SUPABASE_ANON_KEY =
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: false },
 });
+
+export function triggerExtraction(reviewId) {
+  fetch(`${SUPABASE_URL}/functions/v1/extract-review`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+    },
+    body: JSON.stringify({ review_id: reviewId }),
+  }).catch((e) => console.warn('[Appreton] extraction trigger failed:', e.message));
+}

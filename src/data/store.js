@@ -1,5 +1,5 @@
 import { storageGet, storageSet } from './storage';
-import { supabase } from './supabase';
+import { supabase, triggerExtraction } from './supabase';
 import {
   addXpToUser,
   getCurrentUser,
@@ -57,6 +57,9 @@ function rowToReview(row) {
     likes: row.likes || 0,
     gender: row.gender || null,
     authorName: row.author_name || null,
+    extractionStatus: row.extraction_status || null,
+    extractionTags: row.structured_extraction?.tags || [],
+    extractionSentiment: row.structured_extraction?.overall_sentiment || null,
   };
 }
 
@@ -383,6 +386,7 @@ export async function upsertReview(review, context = {}) {
       throw new Error(`No se pudo actualizar la opinion: ${updErr.message}`);
     }
 
+    triggerExtraction(existing.id);
     await refreshPlaceAggregates(placeId);
 
     // Caché local
@@ -433,6 +437,7 @@ export async function upsertReview(review, context = {}) {
     throw new Error(`No se pudo guardar la opinion: ${insertError.message}`);
   }
 
+  triggerExtraction(newId);
   await refreshPlaceAggregates(placeId);
 
   // --- Calcular XP ---
