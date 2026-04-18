@@ -39,6 +39,7 @@
         "backgroundColor": "#8B6914"
       },
       "package": "com.appreton.app",
+      "googleServicesFile": "./google-services.json",
       "versionCode": 7,
       "permissions": [
         "ACCESS_FINE_LOCATION",
