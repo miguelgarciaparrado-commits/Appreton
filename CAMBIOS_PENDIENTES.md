@@ -81,6 +81,41 @@ Acumula todos los fixes y features desde la 1.1.0:
   (`file://...`) que solo funcionaba en el dispositivo original.
   Fallback: si la imagen no carga, se muestra el avatar caca por defecto.
 
+- **Agente extractor de reseñas** (Claude Sonnet 4): cada opinion se
+  analiza automaticamente en background via Supabase Edge Function.
+  Extrae: cleanliness, supplies, smell, privacy, safety, tags,
+  sentiment y flags. Los tags se muestran como chips azules debajo
+  de cada opinion. Coste: ~$0.003/review. Secret ANTHROPIC_API_KEY
+  configurado en Supabase Edge Functions.
+- **OpenStreetMap (Overpass API)**: nueva fuente de WCs publicos
+  (cabinas, parques, estaciones). Se suman a Google Places y app DB.
+  Cache local 24h, fallback con servidor mirror. Tipo "wc_publico"
+  con emoji 🚻 y filtro en Explorar.
+- **Firebase Analytics**: 7 eventos custom (bano_reportado,
+  busqueda_bano, bano_visualizado, filtro_aplicado, como_llegar,
+  like_opinion, juego_iniciado). google-services.json configurado.
+- **Nombre del autor en opiniones**: cada opinion muestra 👨/👩 +
+  nombre del usuario. Se guarda author_name y gender en la tabla
+  reviews. Nombres largos truncados con "...".
+- **Banner de racha en Explorar**: muestra "🔥 Racha de X dias"
+  en la parte superior. Indica si ya opinaste hoy o si debes opinar
+  para no perder la racha.
+- **Ranking pulsable**: las tarjetas de Top WC ahora son tocables,
+  llevan al detalle del sitio para ver opiniones.
+- **Toggle me gusta**: los likes en opiniones son reversibles
+  (pulsar de nuevo quita el like).
+- **Firma release con keystore propio**: plugin signing-config.js
+  configura automaticamente la firma release. Keystore en
+  appreton-release.keystore (fuera de git).
+- **Politica de privacidad**: docs/index.html listo para GitHub
+  Pages. Cubre RGPD, ubicacion, camara, Supabase UE.
+- **Icono sin texto**: caca cute centrada en zona segura 55%,
+  sin "APPreton" que se cortaba en launchers circulares.
+- **Radio 800m**: ampliado de 600m para cubrir mas sitios.
+- **Sin gasolineras low cost**: filtro por marca (Ballenoil,
+  Plenoil, etc.) — no tienen WC.
+- **Sin supermercados**: solo shopping_mall y department_store.
+
 ### Branding
 - **Logo oficial** de la app: caca cute con APPreton debajo, en
   assets/icon.png, splash-icon.png, adaptive-icon.png, favicon.png.
@@ -108,7 +143,23 @@ todos los commits de 1.2.0, 1.3.0, 1.4.0 y 1.5.0 en un unico APK.
 ## Commit history reciente
 
 ```
-697788c fix: Emojis literales en Toca la Caca (no unicode escapes en JSX)
+fdcd94f feat: Agente extractor de reseñas (T3-T5 + T7)
+5ce5a0a feat(sql): Migracion para campos de extractor estructurado
+2813d77 feat: Banner de racha visible en Explorar
+62d714f feat: Muestra nombre del autor + genero en cada opinion
+c7d05d7 feat: Muestra genero del usuario en cada opinion (👨/👩)
+3d31be1 feat: Amplia radio de busqueda de 600m a 800m
+c92afda fix: Reequilibra parametros de notificacion (5 min, 100m)
+772983a feat: Ranking de baños con tarjetas pulsables → ver opiniones
+4eb8f1e fix: Markers compactos (💩4.2) + OSM con fallback mirror
+811a9d7 feat: Integra OpenStreetMap (Overpass API) para WCs publicos
+e98263b feat: Integra Firebase Analytics con eventos custom
+144214f fix: Icono recentrado sin texto para adaptive icon safe zone
+17aa20f feat: Firma release con keystore propio para Google Play
+7d9e5ca docs: Politica de privacidad para Google Play (GitHub Pages)
+fbe0a05 feat: Toggle me gusta en opiniones (like/unlike)
+f444637 fix: Filtra gasolineras low cost sin WC
+697788c fix: Emojis literales en Toca la Caca
 e49245f fix(map): Quita supermercados y tiendas sin WC publico
 f488443 feat: Pantalla "Juegos" con Cagatrivia + Toca la Caca
 fcb62c1 feat: Elimina pestaña "Sugerir sitio" del TabBar
@@ -116,18 +167,6 @@ aaa4b1b feat(map): Markers muestran cacas (1-5) en vez de colores
 a3c14dd feat: Boton "Como llegar" en detalle de sitio y mapa
 cc6c55d fix: Avatares personalizados visibles en ranking multi-dispositivo
 b69fe71 fix: Filtro anti-conduccion en geofencing (velocidad + distancia GPS)
-d32f4f7 feat(ios): Prepara proyecto para build iOS en el futuro
-53b9c45 feat(login): "Recuperar contraseña" visible y acentos en spanish
-23c1021 fix: Icono de notificacion real (cacita silueta) en status bar
-d964445 fix(map): contador real + markers con rating visible
-68459d2 feat: Cagatrivia + boton me gusta en opiniones (1.6.0)
-64468cf feat: Login con Google nativo (adios supabase.co del prompt)
-ab827ab feat: Email al admin cuando alguien sugiere un sitio
-9529a6f feat: Usa el logo APPreton como icono oficial de la app
-cd8b852 feat: Revamp de niveles, XP y anti-farmeo (1.4.0)
-a9d24c5 feat: Migracion de cache por version
-68ecbf7 feat: Notificaciones de cercania (Android + iOS)
-03e1392 fix: Evita opiniones duplicadas y muestra media real en Explorar
 ```
 
 ## Requisitos fuera del repo antes de compilar
@@ -148,8 +187,25 @@ a9d24c5 feat: Migracion de cache por version
 5. **Supabase → SQL Editor**, ejecutar:
    ```sql
    alter table reviews add column if not exists likes int default 0;
+   alter table reviews add column if not exists gender text;
+   alter table reviews add column if not exists author_name text;
+   alter table reviews add column if not exists structured_extraction jsonb;
+   alter table reviews add column if not exists extracted_at timestamptz;
+   alter table reviews add column if not exists extraction_version text;
+   alter table reviews add column if not exists extraction_error text;
+   alter table reviews add column if not exists extraction_status text default 'pending';
+   create index if not exists reviews_extraction_status_idx
+     on reviews (extraction_status)
+     where extraction_status in ('pending', 'processing', 'failed');
    ```
-6. **Supabase → Storage**: crear bucket **`avatars`** con acceso **publico**.
+6. **Supabase → Edge Functions → Secrets**: añadir `ANTHROPIC_API_KEY`
+   con la clave de [console.anthropic.com](https://console.anthropic.com).
+7. **Supabase → Edge Functions**: desplegar con Supabase CLI:
+   ```
+   supabase functions deploy extract-review
+   supabase functions deploy backfill-extractions
+   ```
+8. **Supabase → Storage**: crear bucket **`avatars`** con acceso **publico**.
    Luego añadir una policy para que solo usuarios autenticados puedan subir:
    - Ir a Storage → Policies → `avatars` bucket
    - New policy → INSERT: `auth.role() = 'authenticated'`
