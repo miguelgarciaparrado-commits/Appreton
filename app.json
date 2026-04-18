@@ -70,6 +70,7 @@
       "./plugins/patch-async-storage",
       "./plugins/patch-expo-modules",
       "./plugins/signing-config",
+      "./plugins/abi-filter",
       "@react-native-firebase/app",
       [
         "expo-build-properties",
