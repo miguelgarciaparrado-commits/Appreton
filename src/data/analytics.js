@@ -47,6 +47,14 @@ export function logComoLlegar(banoId, banoNombre) {
   });
 }
 
+export function logPinVisualizado(placeId, estado, hoursAgo) {
+  safeLog('pin_visualizado', {
+    place_id: placeId || '',
+    estado: estado || 'sin_datos',
+    hours_ago: hoursAgo != null ? Math.round(hoursAgo) : -1,
+  });
+}
+
 export function logLikeOpinion(reviewId) {
   safeLog('like_opinion', {
     review_id: reviewId || '',

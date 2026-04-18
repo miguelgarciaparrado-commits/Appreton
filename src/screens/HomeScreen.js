@@ -17,6 +17,7 @@ import { getCurrentUser } from '../data/auth';
 import { fetchNearbyPlaces } from '../data/googlePlaces';
 import { fetchNearbyToiletsOSM } from '../data/osmPlaces';
 import PlaceCard from '../components/PlaceCard';
+import { getPinColor, formatAgo } from '../data/freshness';
 import NearbyPrompt from '../components/NearbyPrompt';
 import {
   cacheGooglePlacesForTask,
@@ -180,9 +181,13 @@ export default function HomeScreen({ navigation }) {
     const result = {};
     for (const [pid, list] of map.entries()) {
       const avg = list.reduce((s, r) => s + r.rating, 0) / list.length;
+      const latest = list.reduce((a, b) =>
+        new Date(a.date) > new Date(b.date) ? a : b,
+      );
       result[pid] = {
         avgRating: Math.round(avg * 10) / 10,
         reviewCount: list.length,
+        lastReviewDate: latest.date,
       };
     }
     return result;
@@ -191,7 +196,12 @@ export default function HomeScreen({ navigation }) {
   function withComputedRating(p) {
     const stats = reviewsByPlace[p.id];
     if (!stats) return p;
-    return { ...p, avgRating: stats.avgRating, reviewCount: stats.reviewCount };
+    return {
+      ...p,
+      avgRating: stats.avgRating,
+      reviewCount: stats.reviewCount,
+      lastReviewDate: stats.lastReviewDate,
+    };
   }
 
   // --- Foreground dwell detection (banner in-app) ---

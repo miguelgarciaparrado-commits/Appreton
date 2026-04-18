@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import PoopRating from './PoopRating';
+import { getPinColor, formatAgo } from '../data/freshness';
 
 const TYPE_LABELS = {
   bar: '🍺 Bar',
@@ -38,6 +39,11 @@ export default function PlaceCard({ place, onPress }) {
         <Text style={styles.ratingText}>
           {place.avgRating.toFixed(1)} ({place.reviewCount} {place.reviewCount === 1 ? 'opinion' : 'opiniones'})
         </Text>
+        {place.lastReviewDate && (
+          <View style={[styles.freshnessBadge, { backgroundColor: getPinColor(place.avgRating, place.lastReviewDate) }]}>
+            <Text style={styles.freshnessText}>{formatAgo(place.lastReviewDate)}</Text>
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -102,5 +108,16 @@ const styles = StyleSheet.create({
     color: '#2980B9',
     fontSize: 12,
     fontWeight: '600',
+  },
+  freshnessBadge: {
+    marginLeft: 'auto',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  freshnessText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '700',
   },
 });

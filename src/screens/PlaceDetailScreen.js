@@ -23,6 +23,7 @@ import {
 import PoopRating from '../components/PoopRating';
 import AmenitiesBadges from '../components/AmenitiesBadges';
 import { logBanoVisualizado, logComoLlegar, logLikeOpinion } from '../data/analytics';
+import { estadoEmoji, estadoLabel, ratingToEstado, formatAgo } from '../data/freshness';
 
 const TYPE_LABELS = {
   bar: '🍺 Bar',
@@ -143,10 +144,12 @@ export default function PlaceDetailScreen({ route, navigation }) {
   }
 
   const totalReviews = reviews.length;
-  // Calcular rating real desde las reviews cargadas (no el dato estatico del lugar)
   const avgRating = totalReviews
     ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / totalReviews) * 10) / 10
     : 0;
+  const latestReviewDate = totalReviews
+    ? reviews.reduce((a, b) => (new Date(a.date) > new Date(b.date) ? a : b)).date
+    : null;
 
   const paperPercent = totalReviews
     ? Math.round((reviews.filter((r) => r.hasPaper).length / totalReviews) * 100)
@@ -178,10 +181,17 @@ export default function PlaceDetailScreen({ route, navigation }) {
           </TouchableOpacity>
         )}
         {totalReviews > 0 ? (
-          <View style={styles.ratingRow}>
-            <PoopRating rating={avgRating} size={28} readonly />
-            <Text style={styles.ratingText}>{avgRating.toFixed(1)}/5</Text>
-          </View>
+          <>
+            <View style={styles.ratingRow}>
+              <PoopRating rating={avgRating} size={28} readonly />
+              <Text style={styles.ratingText}>{avgRating.toFixed(1)}/5</Text>
+            </View>
+            {latestReviewDate && (
+              <Text style={styles.estadoText}>
+                {estadoEmoji(ratingToEstado(avgRating))} {estadoLabel(ratingToEstado(avgRating))} · {formatAgo(latestReviewDate)}
+              </Text>
+            )}
+          </>
         ) : (
           <Text style={styles.noRatingText}>Sin opiniones aún</Text>
         )}
@@ -351,6 +361,7 @@ const styles = StyleSheet.create({
   directionsBtnText: { color: '#FFF', fontWeight: '600', fontSize: 13 },
   ratingRow: { flexDirection: 'row', alignItems: 'center' },
   ratingText: { fontSize: 20, fontWeight: 'bold', color: '#FFF', marginLeft: 10 },
+  estadoText: { fontSize: 13, color: '#F5DEB3', marginTop: 6, fontWeight: '600' },
   noRatingText: { fontSize: 14, color: '#F5DEB3', fontStyle: 'italic' },
   // Primera opinión CTA
   firstReviewCard: {

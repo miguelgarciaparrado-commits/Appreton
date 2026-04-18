@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,8 @@ import {
   Platform,
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import { logComoLlegar } from '../data/analytics';
+import { logComoLlegar, logPinVisualizado } from '../data/analytics';
+import { getPinColor, estadoEmoji, estadoLabel, ratingToEstado, formatAgo, hoursSince } from '../data/freshness';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { getPlaces, getReviews } from '../data/store';
@@ -66,7 +67,13 @@ export default function MapScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [locationError, setLocationError] = useState(null);
   const [selectedPlace, setSelectedPlace] = useState(null);
+  const [now, setNow] = useState(Date.now());
   const mapRef = useRef(null);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(id);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -124,9 +131,13 @@ export default function MapScreen({ navigation }) {
     const result = {};
     for (const [pid, list] of map.entries()) {
       const avg = list.reduce((s, r) => s + r.rating, 0) / list.length;
+      const latest = list.reduce((a, b) =>
+        new Date(a.date) > new Date(b.date) ? a : b,
+      );
       result[pid] = {
         avgRating: Math.round(avg * 10) / 10,
         reviewCount: list.length,
+        lastReviewDate: latest.date,
       };
     }
     return result;
@@ -142,6 +153,7 @@ export default function MapScreen({ navigation }) {
           ...p,
           avgRating: stats?.avgRating ?? p.avgRating ?? 0,
           reviewCount: stats?.reviewCount ?? p.reviewCount ?? 0,
+          lastReviewDate: stats?.lastReviewDate || null,
           _dist: distanceMeters(
             userLocation.latitude,
             userLocation.longitude,
@@ -203,7 +215,7 @@ export default function MapScreen({ navigation }) {
         onPress={() => setSelectedPlace(null)}
       >
         {places.map((p) => {
-          const typeColor = TYPE_COLOR[p.type] || '#8B6914';
+          const pinColor = getPinColor(p.avgRating, p.lastReviewDate);
           const emoji = TYPE_EMOJI[p.type] || '🚽';
           const isSelected = selectedPlace?.id === p.id;
           const ratingLabel = p.reviewCount > 0
@@ -211,16 +223,21 @@ export default function MapScreen({ navigation }) {
             : '?';
           return (
             <Marker
-              key={p.id}
+              key={`${p.id}-${now}`}
               coordinate={{ latitude: p.latitude, longitude: p.longitude }}
               tracksViewChanges={false}
               anchor={{ x: 0.5, y: 1 }}
-              onPress={() => setSelectedPlace(p)}
+              onPress={() => {
+                setSelectedPlace(p);
+                const estado = ratingToEstado(p.avgRating);
+                const hours = hoursSince(p.lastReviewDate);
+                logPinVisualizado(p.id, estado, hours);
+              }}
             >
               <View style={styles.markerWrap}>
                 <View style={[
                   styles.markerCircle,
-                  { backgroundColor: typeColor },
+                  { backgroundColor: pinColor },
                   isSelected && styles.markerSelected,
                 ]}>
                   <Text style={styles.markerEmoji}>{emoji}</Text>
@@ -262,6 +279,11 @@ export default function MapScreen({ navigation }) {
                   ? `${'💩'.repeat(Math.round(selectedPlace.avgRating))} ${selectedPlace.avgRating.toFixed(1)} (${selectedPlace.reviewCount})`
                   : 'Sin valorar'}
               </Text>
+              {selectedPlace.reviewCount > 0 && (
+                <Text style={styles.placeCardEstado}>
+                  {estadoEmoji(ratingToEstado(selectedPlace.avgRating))} {estadoLabel(ratingToEstado(selectedPlace.avgRating))} · {formatAgo(selectedPlace.lastReviewDate)}
+                </Text>
+              )}
             </View>
           </View>
           <View style={styles.placeCardButtons}>
@@ -368,6 +390,7 @@ const styles = StyleSheet.create({
   placeCardInfo: { flex: 1 },
   placeCardName: { fontSize: 15, fontWeight: '700', color: '#2C3E50' },
   placeCardRating: { fontSize: 12, color: '#8B6914', marginTop: 2 },
+  placeCardEstado: { fontSize: 11, color: '#555', marginTop: 2, fontWeight: '600' },
   placeCardButtons: { flexDirection: 'row', gap: 10 },
   placeCardBtn: {
     flex: 1,
