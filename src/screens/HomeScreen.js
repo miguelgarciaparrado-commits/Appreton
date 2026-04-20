@@ -32,11 +32,11 @@ const PROXIMITY_RADIUS_M = 30; // a qué distancia consideramos "dentro"
 
 const FILTERS = [
   { key: 'todos', label: '🚽 Todos' },
+  { key: 'wc_publico', label: '🚻 WC Publicos' },
   { key: 'bar', label: '🍺 Bares' },
   { key: 'restaurante', label: '🍽️ Restaurantes' },
   { key: 'gasolinera', label: '⛽ Gasolineras' },
   { key: 'centro_comercial', label: '🛒 Centros' },
-  { key: 'wc_publico', label: '🚻 WC' },
 ];
 
 const SORT_OPTIONS = [
