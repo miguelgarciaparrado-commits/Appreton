@@ -116,6 +116,17 @@ Acumula todos los fixes y features desde la 1.1.0:
   Plenoil, etc.) — no tienen WC.
 - **Sin supermercados**: solo shopping_mall y department_store.
 
+- **Decaimiento Visual del Dato**: los markers del mapa cambian de
+  color segun la antiguedad de la ultima review. Rating alto + reciente
+  = verde brillante. Rating bajo + reciente = rojo brillante. >7 dias
+  o sin reviews = gris. Tarjeta inferior y PlaceDetail muestran
+  "🟢 Limpio · Hace 2 horas". PlaceCard muestra badge de color con
+  "Hace X". Timer de 60s para refrescar sin red. Evento analytics
+  `pin_visualizado`.
+- **Build optimizado arm64-v8a**: plugin abi-filter.js limita la
+  compilacion a solo la arquitectura arm64-v8a (95% de moviles).
+  Reduce el tiempo de build de 1h+ a 15-25 min al evitar CMake para
+  x86_64 y armeabi-v7a.
 - **Pre-validacion de opiniones + reversion de XP**: antes de enviar,
   la app comprueba si el comentario contiene al menos una palabra
   relacionada con baños (limpi, papel, jabon, olor, WC, etc.). Si
@@ -162,11 +173,14 @@ todos los commits de 1.2.0, 1.3.0, 1.4.0 y 1.5.0 en un unico APK.
 ## Commit history reciente
 
 ```
+d239417 fix: Pre-validacion + reversion de XP para opiniones rechazadas
+12cf476 perf: Limita build Android a arm64-v8a para reducir tiempo
+93cb062 feat: Decaimiento Visual del Dato — markers con color por frescura
+e754eae fix: Añade googleServicesFile en app.json para Firebase plugin
+aaa6e2b feat: Moderacion automatica de reseñas via extractor
 fdcd94f feat: Agente extractor de reseñas (T3-T5 + T7)
-5ce5a0a feat(sql): Migracion para campos de extractor estructurado
 2813d77 feat: Banner de racha visible en Explorar
 62d714f feat: Muestra nombre del autor + genero en cada opinion
-c7d05d7 feat: Muestra genero del usuario en cada opinion (👨/👩)
 3d31be1 feat: Amplia radio de busqueda de 600m a 800m
 c92afda fix: Reequilibra parametros de notificacion (5 min, 100m)
 772983a feat: Ranking de baños con tarjetas pulsables → ver opiniones
@@ -178,8 +192,6 @@ e98263b feat: Integra Firebase Analytics con eventos custom
 7d9e5ca docs: Politica de privacidad para Google Play (GitHub Pages)
 fbe0a05 feat: Toggle me gusta en opiniones (like/unlike)
 f444637 fix: Filtra gasolineras low cost sin WC
-697788c fix: Emojis literales en Toca la Caca
-e49245f fix(map): Quita supermercados y tiendas sin WC publico
 f488443 feat: Pantalla "Juegos" con Cagatrivia + Toca la Caca
 fcb62c1 feat: Elimina pestaña "Sugerir sitio" del TabBar
 aaa4b1b feat(map): Markers muestran cacas (1-5) en vez de colores
