@@ -47,6 +47,13 @@ export function logComoLlegar(banoId, banoNombre) {
   });
 }
 
+export function logOpinionRechazada(motivo, comentLength) {
+  safeLog('opinion_rechazada', {
+    motivo: motivo || 'unknown',
+    length: comentLength || 0,
+  });
+}
+
 export function logPinVisualizado(placeId, estado, hoursAgo) {
   safeLog('pin_visualizado', {
     place_id: placeId || '',

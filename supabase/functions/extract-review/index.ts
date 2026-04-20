@@ -206,6 +206,52 @@ Deno.serve(async (req) => {
       })
       .eq("id", reviewId);
 
+    // 7. Si se marca pending_review, revertir XP y contadores
+    // Asi el usuario no se queda con XP de una opinion que no se publicara.
+    if (needsReview && review.user_id) {
+      try {
+        // Revertir XP base (~20 XP, no sabemos bonus exacto pero es
+        // el valor mas comun). Decrementar total_reviews.
+        const { data: profile } = await supabase
+          .from("user_profiles")
+          .select("xp, total_reviews")
+          .eq("id", review.user_id)
+          .maybeSingle();
+
+        if (profile) {
+          const newXp = Math.max(0, (profile.xp || 0) - 20);
+          const newTotal = Math.max(0, (profile.total_reviews || 0) - 1);
+          await supabase
+            .from("user_profiles")
+            .update({ xp: newXp, total_reviews: newTotal })
+            .eq("id", review.user_id);
+        }
+
+        // Recalcular agregados del place sin reviews ocultas
+        const { data: visibleReviews } = await supabase
+          .from("reviews")
+          .select("rating")
+          .eq("place_id", review.place_id)
+          .or("moderation_status.eq.visible,moderation_status.is.null");
+
+        if (visibleReviews) {
+          const count = visibleReviews.length;
+          const avg = count > 0
+            ? visibleReviews.reduce((s, r) => s + (r.rating || 0), 0) / count
+            : 0;
+          await supabase
+            .from("places")
+            .update({
+              avg_rating: Math.round(avg * 10) / 10,
+              review_count: count,
+            })
+            .eq("id", review.place_id);
+        }
+      } catch (reversalErr) {
+        console.error("[extract-review] XP reversal error:", reversalErr);
+      }
+    }
+
     return new Response(
       JSON.stringify({ status: "done", moderation: moderationStatus, extraction }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },

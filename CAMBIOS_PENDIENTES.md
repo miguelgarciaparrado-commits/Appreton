@@ -116,6 +116,16 @@ Acumula todos los fixes y features desde la 1.1.0:
   Plenoil, etc.) — no tienen WC.
 - **Sin supermercados**: solo shopping_mall y department_store.
 
+- **Pre-validacion de opiniones + reversion de XP**: antes de enviar,
+  la app comprueba si el comentario contiene al menos una palabra
+  relacionada con baños (limpi, papel, jabon, olor, WC, etc.). Si
+  no tiene ninguna y es corto (<50 chars), se rechaza en cliente
+  con mensaje claro y NO se consume API ni se da XP.
+  Para casos que pasan el filtro local pero Claude detecta como
+  off_topic/spam/offensive: la Edge Function revierte el XP
+  (-20) y decrementa total_reviews del usuario + recalcula
+  avg_rating/review_count del place excluyendo reviews ocultas.
+  Evento analytics: `opinion_rechazada` con motivo.
 - **Moderacion automatica de reseñas**: el extractor evalua los flags
   de cada opinion. Si detecta `offensive_language`, `possible_spam` o
   `off_topic`, marca la review como `pending_review` y deja de ser

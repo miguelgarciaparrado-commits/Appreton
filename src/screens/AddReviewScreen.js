@@ -16,7 +16,29 @@ import {
 import * as Location from 'expo-location';
 import PoopRating from '../components/PoopRating';
 import { upsertReview, getUserReviewForPlace } from '../data/store';
-import { logBanoReportado } from '../data/analytics';
+import { logBanoReportado, logOpinionRechazada } from '../data/analytics';
+
+const BATHROOM_KEYWORDS = [
+  'limpi', 'sucio', 'olor', 'huele', 'peste', 'hediondez',
+  'papel', 'jabon', 'jabón', 'escobilla', 'toalla', 'secador',
+  'wc', 'water', 'bano', 'baño', 'aseo', 'retrete', 'inodoro', 'taza',
+  'puerta', 'cerrojo', 'cierre', 'pestillo',
+  'lavabo', 'grifo', 'agua',
+  'accesib', 'minusvalid', 'rampa', 'silla de ruedas',
+  'cambiador', 'bebe', 'bebé',
+  'ventila', 'luz', 'iluminac',
+  'espejo', 'perchero',
+  'consumic', 'pidieron', 'obligar',
+  'estrecho', 'amplio', 'grande', 'pequen', 'pequeñ',
+  'papelera', 'basura',
+  'privacidad', 'intimidad',
+  'cola', 'fila', 'espera',
+];
+
+function isOnTopic(text) {
+  const lower = (text || '').toLowerCase();
+  return BATHROOM_KEYWORDS.some((kw) => lower.includes(kw));
+}
 
 const EXTRAS_OPTIONS = [
   { icon: '💨', label: 'Secador de manos' },
@@ -75,6 +97,18 @@ export default function AddReviewScreen({ route, navigation }) {
     }
     if (!comment.trim()) {
       Alert.alert('Ey!', 'Escribe un comentario sobre el WC');
+      return;
+    }
+
+    // Pre-validacion: si el comentario es corto y no tiene keywords de baños,
+    // se rechaza localmente sin consumir API ni dar XP.
+    const trimmed = comment.trim();
+    if (trimmed.length < 50 && !isOnTopic(trimmed)) {
+      logOpinionRechazada('off_topic_local', trimmed.length);
+      Alert.alert(
+        'Opinión no válida',
+        'Tu opinión no pudo publicarse porque no está relacionada con el estado del baño. Intenta describir limpieza, olor, papel, accesibilidad, etc.',
+      );
       return;
     }
 
