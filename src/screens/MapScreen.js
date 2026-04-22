@@ -131,13 +131,15 @@ export default function MapScreen({ navigation }) {
     const result = {};
     for (const [pid, list] of map.entries()) {
       const avg = list.reduce((s, r) => s + r.rating, 0) / list.length;
-      const latest = list.reduce((a, b) =>
-        new Date(a.date) > new Date(b.date) ? a : b,
-      );
+      const latest = list.reduce((a, b) => {
+        const da = new Date(a.createdAt || a.date);
+        const db = new Date(b.createdAt || b.date);
+        return da > db ? a : b;
+      });
       result[pid] = {
         avgRating: Math.round(avg * 10) / 10,
         reviewCount: list.length,
-        lastReviewDate: latest.date,
+        lastReviewDate: latest.createdAt || latest.date,
       };
     }
     return result;

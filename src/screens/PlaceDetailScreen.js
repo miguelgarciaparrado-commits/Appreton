@@ -148,7 +148,11 @@ export default function PlaceDetailScreen({ route, navigation }) {
     ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / totalReviews) * 10) / 10
     : 0;
   const latestReviewDate = totalReviews
-    ? reviews.reduce((a, b) => (new Date(a.date) > new Date(b.date) ? a : b)).date
+    ? reviews.reduce((a, b) => {
+        const da = new Date(a.createdAt || a.date);
+        const db = new Date(b.createdAt || b.date);
+        return da > db ? a : b;
+      }).createdAt || reviews[0]?.date
     : null;
 
   const paperPercent = totalReviews

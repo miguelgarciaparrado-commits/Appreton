@@ -54,6 +54,7 @@ function rowToReview(row) {
     requiredOrder: row.required_order,
     extras: row.extras || [],
     date: row.date,
+    createdAt: row.created_at || row.date,
     likes: row.likes || 0,
     gender: row.gender || null,
     authorName: row.author_name || null,
@@ -426,6 +427,7 @@ export async function upsertReview(review, context = {}) {
     has_paper: review.hasPaper, has_soap: review.hasSoap,
     has_brush: review.hasBrush, required_order: review.requiredOrder ?? null,
     extras: review.extras || [], date: today,
+    created_at: new Date().toISOString(),
     gender: currentUser.gender || null,
     author_name: currentUser.displayName || null,
   });
