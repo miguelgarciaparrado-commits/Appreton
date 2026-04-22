@@ -47,10 +47,11 @@ export function logComoLlegar(banoId, banoNombre) {
   });
 }
 
-export function logOpinionRechazada(motivo, comentLength) {
-  safeLog('opinion_rechazada', {
-    motivo: motivo || 'unknown',
-    length: comentLength || 0,
+export function logOpinionPublicada(tieneTexto, longitudTexto, estrellas) {
+  safeLog('opinion_publicada', {
+    tiene_texto: tieneTexto ? 'si' : 'no',
+    longitud_texto: longitudTexto || 0,
+    estrellas: estrellas || 0,
   });
 }
 

@@ -16,28 +16,13 @@ import {
 import * as Location from 'expo-location';
 import PoopRating from '../components/PoopRating';
 import { upsertReview, getUserReviewForPlace } from '../data/store';
-import { logBanoReportado, logOpinionRechazada } from '../data/analytics';
+import { logBanoReportado, logOpinionPublicada } from '../data/analytics';
 
-const BATHROOM_KEYWORDS = [
-  'limpi', 'sucio', 'olor', 'huele', 'peste', 'hediondez',
-  'papel', 'jabon', 'jabón', 'escobilla', 'toalla', 'secador',
-  'wc', 'water', 'bano', 'baño', 'aseo', 'retrete', 'inodoro', 'taza',
-  'puerta', 'cerrojo', 'cierre', 'pestillo',
-  'lavabo', 'grifo', 'agua',
-  'accesib', 'minusvalid', 'rampa', 'silla de ruedas',
-  'cambiador', 'bebe', 'bebé',
-  'ventila', 'luz', 'iluminac',
-  'espejo', 'perchero',
-  'consumic', 'pidieron', 'obligar',
-  'estrecho', 'amplio', 'grande', 'pequen', 'pequeñ',
-  'papelera', 'basura',
-  'privacidad', 'intimidad',
-  'cola', 'fila', 'espera',
-];
-
-function isOnTopic(text) {
-  const lower = (text || '').toLowerCase();
-  return BATHROOM_KEYWORDS.some((kw) => lower.includes(kw));
+function isSpam(text) {
+  if (!text || text.length < 2) return true;
+  if (/https?:\/\/|www\./i.test(text)) return true;
+  if (/(.)\1{7,}/.test(text)) return true;
+  return false;
 }
 
 const EXTRAS_OPTIONS = [
@@ -90,26 +75,19 @@ export default function AddReviewScreen({ route, navigation }) {
   }, [place.id]);
 
   async function handleSubmit() {
-    if (submitting) return; // evita doble-tap
+    if (submitting) return;
     if (rating === 0) {
       Alert.alert('Ey!', 'Pon una valoracion con las cacas 💩');
       return;
     }
-    if (!comment.trim()) {
-      Alert.alert('Ey!', 'Escribe un comentario sobre el WC');
-      return;
-    }
 
-    // Pre-validacion: si el comentario es corto y no tiene keywords de baños,
-    // se rechaza localmente sin consumir API ni dar XP.
     const trimmed = comment.trim();
-    if (trimmed.length < 50 && !isOnTopic(trimmed)) {
-      logOpinionRechazada('off_topic_local', trimmed.length);
-      Alert.alert(
-        'Opinión no válida',
-        'Tu opinión no pudo publicarse porque no está relacionada con el estado del baño. Intenta describir limpieza, olor, papel, accesibilidad, etc.',
-      );
-      return;
+    let finalComment = trimmed;
+    let textFiltered = false;
+
+    if (trimmed && isSpam(trimmed)) {
+      finalComment = '';
+      textFiltered = true;
     }
 
     setSubmitting(true);
@@ -137,7 +115,7 @@ export default function AddReviewScreen({ route, navigation }) {
         {
           placeId: place.id,
           rating,
-          comment: comment.trim(),
+          comment: finalComment,
           hasPaper,
           hasSoap,
           hasBrush,
@@ -174,9 +152,19 @@ export default function AddReviewScreen({ route, navigation }) {
       }
     }
     logBanoReportado(rating, place.address || '');
-    Alert.alert('Gracias! 💩', msg, [
-      { text: 'OK', onPress: () => navigation.goBack() },
-    ]);
+    logOpinionPublicada(!!finalComment, finalComment.length, rating);
+
+    if (textFiltered) {
+      Alert.alert(
+        'Valoracion publicada 💩',
+        'Tu valoracion se publico, pero tu comentario no paso la moderacion.',
+        [{ text: 'OK', onPress: () => navigation.goBack() }],
+      );
+    } else {
+      Alert.alert('Gracias! 💩', msg, [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
+    }
   }
 
   return (

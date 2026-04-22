@@ -128,9 +128,16 @@ Acumula todos los fixes y features desde la 1.1.0:
   vez de solo la fecha (`2026-04-22`). Resuelve el bug de "Hace 18h"
   al publicar una opinion reciente. Reviews antiguas sin `created_at`
   usan `date` como fallback.
-- **Tests automatizados**: 15 tests Jest que verifican que tras
-  publicar una opinion, el header muestra "Hace X min" y nunca
-  "Hace X horas" durante la primera hora. Ejecutar: `npm test`.
+- **Validacion de opiniones simplificada**: texto libre es OPCIONAL.
+  Solo se filtra spam evidente (URLs, repeticion de caracteres, <2
+  chars). Opiniones como "Para ir a mear y no echar gota" ya NO se
+  rechazan. Si el texto es spam, se publica la valoracion estructurada
+  sin texto + mensaje "tu comentario no paso la moderacion". El filtro
+  BATHROOM_KEYWORDS ha sido eliminado. Evento analytics:
+  `opinion_publicada` con tiene_texto, longitud y estrellas.
+- **Tests automatizados**: 27 tests Jest (15 freshness + 12
+  validation) que verifican el calculo "Hace X" y la nueva logica
+  de validacion. Ejecutar: `npm test`.
 - **Filtro "WC Publicos" mas visible**: renombrado y movido a la
   segunda posicion en Explorar (justo despues de "Todos").
 - **Build optimizado arm64-v8a**: plugin abi-filter.js limita la
