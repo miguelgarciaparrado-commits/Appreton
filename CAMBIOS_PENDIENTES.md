@@ -123,6 +123,16 @@ Acumula todos los fixes y features desde la 1.1.0:
   "🟢 Limpio · Hace 2 horas". PlaceCard muestra badge de color con
   "Hace X". Timer de 60s para refrescar sin red. Evento analytics
   `pin_visualizado`.
+- **Fix "Hace X horas" → timestamp completo**: las reviews ahora
+  guardan `created_at` con ISO completo (`2026-04-22T18:37:45Z`) en
+  vez de solo la fecha (`2026-04-22`). Resuelve el bug de "Hace 18h"
+  al publicar una opinion reciente. Reviews antiguas sin `created_at`
+  usan `date` como fallback.
+- **Tests automatizados**: 15 tests Jest que verifican que tras
+  publicar una opinion, el header muestra "Hace X min" y nunca
+  "Hace X horas" durante la primera hora. Ejecutar: `npm test`.
+- **Filtro "WC Publicos" mas visible**: renombrado y movido a la
+  segunda posicion en Explorar (justo despues de "Todos").
 - **Build optimizado arm64-v8a**: plugin abi-filter.js limita la
   compilacion a solo la arquitectura arm64-v8a (95% de moviles).
   Reduce el tiempo de build de 1h+ a 15-25 min al evitar CMake para
@@ -173,10 +183,12 @@ todos los commits de 1.2.0, 1.3.0, 1.4.0 y 1.5.0 en un unico APK.
 ## Commit history reciente
 
 ```
+80003bc test: Tests automatizados del calculo "Hace X" (15 tests passing)
+9e2dab0 fix: "Hace X horas" usa timestamp completo en vez de solo fecha
+2d10eaf fix: Filtro WC Publicos mas visible en Explorar
 d239417 fix: Pre-validacion + reversion de XP para opiniones rechazadas
 12cf476 perf: Limita build Android a arm64-v8a para reducir tiempo
 93cb062 feat: Decaimiento Visual del Dato — markers con color por frescura
-e754eae fix: Añade googleServicesFile en app.json para Firebase plugin
 aaa6e2b feat: Moderacion automatica de reseñas via extractor
 fdcd94f feat: Agente extractor de reseñas (T3-T5 + T7)
 2813d77 feat: Banner de racha visible en Explorar
@@ -194,7 +206,6 @@ fbe0a05 feat: Toggle me gusta en opiniones (like/unlike)
 f444637 fix: Filtra gasolineras low cost sin WC
 f488443 feat: Pantalla "Juegos" con Cagatrivia + Toca la Caca
 fcb62c1 feat: Elimina pestaña "Sugerir sitio" del TabBar
-aaa4b1b feat(map): Markers muestran cacas (1-5) en vez de colores
 a3c14dd feat: Boton "Como llegar" en detalle de sitio y mapa
 cc6c55d fix: Avatares personalizados visibles en ranking multi-dispositivo
 b69fe71 fix: Filtro anti-conduccion en geofencing (velocidad + distancia GPS)
