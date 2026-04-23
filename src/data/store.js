@@ -117,18 +117,28 @@ export async function getPlaceById(id) {
 export async function getPlaces() {
   try {
     const { data, error } = await supabase.from('places').select('*');
+    if (error) {
+      console.error('[Appreton] getPlaces supabase error:', error.message);
+    }
     if (!error && data) {
+      console.log('[Appreton] getPlaces loaded', data.length, 'places from Supabase');
       const places = data.map(rowToPlace);
-      // Sincroniza caché local con Supabase (aunque esté vacío)
       await storageSet(PLACES_KEY, JSON.stringify(places));
       return places;
     }
-  } catch {}
+  } catch (e) {
+    console.error('[Appreton] getPlaces exception:', e.message);
+  }
 
   try {
     const cached = await storageGet(PLACES_KEY);
-    if (cached) return JSON.parse(cached);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      console.log('[Appreton] getPlaces using cache:', parsed.length, 'places');
+      return parsed;
+    }
   } catch {}
+  console.log('[Appreton] getPlaces: no data, returning []');
   return [];
 }
 
