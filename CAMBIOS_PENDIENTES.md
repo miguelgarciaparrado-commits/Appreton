@@ -714,6 +714,47 @@ config plugin `patch-expo-modules.js`. Todos los modulos expo leen
 
 ---
 
+## Checklist de publicacion en Google Play
+
+### Assets listos en el repo
+- [x] Icono 512x512 → `assets/logo-appreton-512.png`
+- [x] Feature graphic 1024x500 → `assets/feature-graphic.png`
+- [x] Icono adaptativo 1024x1024 → `assets/adaptive-icon.png`
+- [x] Politica de privacidad HTML → `docs/index.html`
+
+### Configuracion tecnica
+- [x] Keystore de firma → `appreton-release.keystore` (fuera de git)
+- [x] Plugin signing-config.js → firma release automatica
+- [x] Build optimizado arm64-v8a → compila en 15-25 min
+- [x] `versionCode: 7` y `version: "1.6.0"` en `app.json`
+
+### Lo que falta (manual)
+- [ ] **Screenshots** del movil (2-8) → capturar desde el APK actual
+- [ ] **AAB firmado** → `gradlew bundleRelease` (generando ahora)
+- [ ] **Cuenta Google Play Console** ($25 one-time)
+- [ ] **Activar GitHub Pages** para la URL de politica de privacidad
+- [ ] Rellenar ficha en Play Console con los textos de `PLAY_STORE_INFO.md`
+- [ ] Upload del AAB a Play Console → Internal testing primero
+- [ ] Tras aprobacion interna → Production release
+
+### Comando para generar AAB firmado
+```
+cd C:\Users\PC\Appreton\android
+set JAVA_HOME=C:\Program Files\Android\Android Studio\jbr
+set PATH=%JAVA_HOME%\bin;%PATH%
+gradlew bundleRelease -x lintVitalAnalyzeRelease -x lintVitalRelease
+```
+AAB resultante en:
+`android\app\build\outputs\bundle\release\app-release.aab`
+
+### Verificar firma del AAB
+```
+"%JAVA_HOME%\bin\jarsigner" -verify -verbose -certs android\app\build\outputs\bundle\release\app-release.aab | findstr "CN="
+```
+Debe mostrar el nombre del developer, NO "Android Debug".
+
+---
+
 ## Pendiente / futuro
 
 - **Panel de administracion web separado** (Next.js) para moderar
