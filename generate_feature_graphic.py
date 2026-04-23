@@ -94,7 +94,7 @@ draw.text((tx, ty), title, font=title_font, fill=WHITE)
 subtitle = '¿Te cagas? abreme'
 draw.text((tx, ty + 110), subtitle, font=subtitle_font, fill=CREAM)
 
-tagline = 'Encuentra los banos publicos'
+tagline = 'Encuentra los WC'
 tagline2 = 'mas limpios cerca de ti'
 draw.text((tx, ty + 165), tagline, font=tagline_font, fill=CREAM)
 draw.text((tx, ty + 200), tagline2, font=tagline_font, fill=CREAM)
