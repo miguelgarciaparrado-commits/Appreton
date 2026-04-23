@@ -118,27 +118,23 @@ export async function getPlaces() {
   try {
     const { data, error } = await supabase.from('places').select('*');
     if (error) {
-      console.error('[Appreton] getPlaces supabase error:', error.message);
+      const { Alert } = require('react-native');
+      Alert.alert('Debug getPlaces', 'Error Supabase: ' + error.message);
     }
     if (!error && data) {
-      console.log('[Appreton] getPlaces loaded', data.length, 'places from Supabase');
       const places = data.map(rowToPlace);
       await storageSet(PLACES_KEY, JSON.stringify(places));
       return places;
     }
   } catch (e) {
-    console.error('[Appreton] getPlaces exception:', e.message);
+    const { Alert } = require('react-native');
+    Alert.alert('Debug getPlaces', 'Exception: ' + e.message);
   }
 
   try {
     const cached = await storageGet(PLACES_KEY);
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      console.log('[Appreton] getPlaces using cache:', parsed.length, 'places');
-      return parsed;
-    }
+    if (cached) return JSON.parse(cached);
   } catch {}
-  console.log('[Appreton] getPlaces: no data, returning []');
   return [];
 }
 
