@@ -123,6 +123,9 @@ export async function getPlaces() {
     }
     if (!error && data) {
       const places = data.map(rowToPlace);
+      const demoCount = places.filter(p => p.id.startsWith('demo_')).length;
+      const { Alert } = require('react-native');
+      Alert.alert('Debug getPlaces', `Total: ${places.length} places\nDemo: ${demoCount}\nPrimero: ${places[0]?.name || 'ninguno'}`);
       await storageSet(PLACES_KEY, JSON.stringify(places));
       return places;
     }
