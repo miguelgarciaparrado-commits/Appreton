@@ -117,22 +117,12 @@ export async function getPlaceById(id) {
 export async function getPlaces() {
   try {
     const { data, error } = await supabase.from('places').select('*');
-    if (error) {
-      const { Alert } = require('react-native');
-      Alert.alert('Debug getPlaces', 'Error Supabase: ' + error.message);
-    }
     if (!error && data) {
       const places = data.map(rowToPlace);
-      const demoCount = places.filter(p => p.id.startsWith('demo_')).length;
-      const { Alert } = require('react-native');
-      Alert.alert('Debug getPlaces', `Total: ${places.length} places\nDemo: ${demoCount}\nPrimero: ${places[0]?.name || 'ninguno'}`);
       await storageSet(PLACES_KEY, JSON.stringify(places));
       return places;
     }
-  } catch (e) {
-    const { Alert } = require('react-native');
-    Alert.alert('Debug getPlaces', 'Exception: ' + e.message);
-  }
+  } catch {}
 
   try {
     const cached = await storageGet(PLACES_KEY);
