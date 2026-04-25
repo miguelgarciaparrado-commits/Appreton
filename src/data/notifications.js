@@ -184,9 +184,12 @@ export async function cacheGooglePlacesForTask(places) {
 
 // Inicia geofencing con hasta 20 regiones (límite iOS). Se registra enter
 // Y exit porque ambos se necesitan para cancelar pendientes fallidos.
+const GEOFENCE_HASH_KEY = '@appreton_geofence_hash';
+
 export async function startGeofencingForPlaces(places) {
   if (!Array.isArray(places) || places.length === 0) {
     try { await Location.stopGeofencingAsync(GEOFENCE_TASK); } catch {}
+    await storageSet(GEOFENCE_HASH_KEY, '');
     return;
   }
 
@@ -204,10 +207,17 @@ export async function startGeofencingForPlaces(places) {
 
   if (regions.length === 0) return;
 
+  const newHash = regions.map((r) => r.identifier).sort().join(',');
+  try {
+    const oldHash = await storageGet(GEOFENCE_HASH_KEY);
+    if (oldHash === newHash) return;
+  } catch {}
+
   try { await Location.stopGeofencingAsync(GEOFENCE_TASK); } catch {}
 
   try {
     await Location.startGeofencingAsync(GEOFENCE_TASK, regions);
+    await storageSet(GEOFENCE_HASH_KEY, newHash);
   } catch (e) {
     console.error('[Appreton] startGeofencingAsync error:', e);
   }
