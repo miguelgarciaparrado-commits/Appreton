@@ -11,7 +11,6 @@ import './src/tasks/geofenceTask';
 import {
   requestNotificationPermission,
   requestBackgroundLocationPermission,
-  markPlaceNotified,
 } from './src/data/notifications';
 import { getPlaceById } from './src/data/store';
 
@@ -137,7 +136,6 @@ export default function App() {
       try {
         const data = response?.notification?.request?.content?.data || {};
         if (data.type !== 'proximity' || !data.placeId) return;
-        await markPlaceNotified(data.placeId);
         const place = await getPlaceById(data.placeId);
         if (!place) return;
         // Esperar a que la navegación esté lista

@@ -139,6 +139,7 @@ export async function handleGeofenceEnter(placeId, placeName) {
 
     pending[placeId] = { notificationId: notifId, enterTime: Date.now() };
     await writePending(pending);
+    await markPlaceNotified(placeId);
   } catch (e) {
     console.error('[Appreton] handleGeofenceEnter error:', e);
   }
