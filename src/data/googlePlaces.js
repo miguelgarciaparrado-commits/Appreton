@@ -13,6 +13,15 @@ const TYPES_FOOD_DRINK = [
   'coffee_shop',
   'fast_food_restaurant',
   'food_court',
+  'brunch_restaurant',
+  'breakfast_restaurant',
+  'ramen_restaurant',
+  'thai_restaurant',
+  'turkish_restaurant',
+  'vegan_restaurant',
+  'vegetarian_restaurant',
+  'ice_cream_shop',
+  'juice_shop',
 ];
 
 const TYPES_OTHER = [
@@ -23,8 +32,8 @@ const TYPES_OTHER = [
 
 function mapGoogleTypeToAppType(primaryType) {
   if (!primaryType) return null;
-  if (['restaurant', 'meal_delivery', 'meal_takeaway', 'cafeteria', 'food_court', 'fast_food_restaurant', 'pizza_restaurant', 'hamburger_restaurant', 'seafood_restaurant', 'steak_house', 'sushi_restaurant', 'indian_restaurant', 'chinese_restaurant', 'mexican_restaurant', 'american_restaurant', 'italian_restaurant', 'japanese_restaurant'].includes(primaryType)) return 'restaurante';
-  if (['bar', 'night_club', 'cafe', 'coffee_shop', 'bakery', 'pub'].includes(primaryType)) return 'bar';
+  if (['restaurant', 'meal_delivery', 'meal_takeaway', 'cafeteria', 'food_court', 'fast_food_restaurant', 'pizza_restaurant', 'hamburger_restaurant', 'seafood_restaurant', 'steak_house', 'sushi_restaurant', 'indian_restaurant', 'chinese_restaurant', 'mexican_restaurant', 'american_restaurant', 'italian_restaurant', 'japanese_restaurant', 'brunch_restaurant', 'breakfast_restaurant', 'ramen_restaurant', 'thai_restaurant', 'turkish_restaurant', 'vegan_restaurant', 'vegetarian_restaurant'].includes(primaryType)) return 'restaurante';
+  if (['bar', 'night_club', 'cafe', 'coffee_shop', 'bakery', 'pub', 'wine_bar', 'sports_bar', 'cocktail_bar', 'espresso_bar', 'ice_cream_shop', 'juice_shop'].includes(primaryType)) return 'bar';
   if (['gas_station', 'service_station'].includes(primaryType)) return 'gasolinera';
   if (['shopping_mall', 'department_store'].includes(primaryType)) return 'centro_comercial';
   return null; // tipo desconocido: se descarta
