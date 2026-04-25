@@ -50,6 +50,22 @@ async function lookupPlaceInfo(placeId) {
   return null;
 }
 
+const DEBOUNCE_MS = 10000;
+const lastEnterByPlace = new Map();
+
+function isDebouncedEnter(placeId) {
+  const now = Date.now();
+  const last = lastEnterByPlace.get(placeId);
+  if (last && now - last < DEBOUNCE_MS) return true;
+  lastEnterByPlace.set(placeId, now);
+  if (lastEnterByPlace.size > 50) {
+    for (const [key, ts] of lastEnterByPlace) {
+      if (now - ts > 60000) lastEnterByPlace.delete(key);
+    }
+  }
+  return false;
+}
+
 TaskManager.defineTask(GEOFENCE_TASK, async ({ data, error }) => {
   if (error) {
     console.error('[Appreton] Geofence task error:', error);
@@ -62,6 +78,7 @@ TaskManager.defineTask(GEOFENCE_TASK, async ({ data, error }) => {
   if (!placeId) return;
 
   if (eventType === Location.GeofencingEventType.Enter) {
+    if (isDebouncedEnter(placeId)) return;
     const info = await lookupPlaceInfo(placeId);
 
     try {
