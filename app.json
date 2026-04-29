@@ -2,7 +2,7 @@
   "expo": {
     "name": "Appreton",
     "slug": "Appreton",
-    "version": "1.6.0",
+    "version": "1.0.0",
     "scheme": "appreton",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -40,7 +40,7 @@
       },
       "package": "com.appreton.app",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 7,
+      "versionCode": 1,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
