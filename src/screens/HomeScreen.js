@@ -102,11 +102,20 @@ export default function HomeScreen({ navigation }) {
   async function loadStreak() {
     try {
       const user = await getCurrentUser();
-      if (user) {
-        setStreak(user.currentStreak || 0);
-        const today = new Date().toISOString().split('T')[0];
-        setHasReviewedToday(user.lastReviewDate === today);
+      if (!user) return;
+      const today = new Date().toISOString().split('T')[0];
+      const last = user.lastReviewDate;
+      // La racha solo sigue viva si la ultima opinion fue hoy o ayer.
+      // Un hueco mayor la rompe aunque la BD aun guarde el valor antiguo.
+      let liveStreak = 0;
+      if (last) {
+        const diffDays = Math.floor(
+          (new Date(today) - new Date(last)) / 86400000
+        );
+        if (diffDays <= 1) liveStreak = user.currentStreak || 0;
       }
+      setStreak(liveStreak);
+      setHasReviewedToday(last === today);
     } catch {}
   }
 
