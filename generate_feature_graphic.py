@@ -151,7 +151,7 @@ for i in range(5):
 # ── Bottom tagline strip ──────────────────────────────────────────────────────
 draw.rectangle([0, H-52, W, H-8], fill=BROWN_DARK)
 bottom_font = ImageFont.truetype(FONT_BOLD, 22)
-bottom_text = "La app de WC publicos mas divertida"
+bottom_text = "La app de WC mas divertida"
 btw = draw.textlength(bottom_text, font=bottom_font)
 draw.text(((W - btw) / 2, H-42), bottom_text, font=bottom_font, fill=GOLD)
 
