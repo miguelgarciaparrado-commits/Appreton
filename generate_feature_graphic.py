@@ -121,7 +121,7 @@ draw.text((tx,   tag_y),   tag_text, font=font_tag, fill=BROWN_DARK)
 
 # ── Sub-tagline ──────────────────────────────────────────────────────────────
 sub_y = tag_y + 56
-sub_text = "Encuentra banos limpios cerca de ti"
+sub_text = "Encuentra WC limpios cerca de ti"
 draw.text((tx, sub_y), sub_text, font=font_sub, fill=BROWN_MID)
 
 # ── Small decorative toilet icon (bottom-right corner, away from text) ───────
@@ -151,7 +151,7 @@ for i in range(5):
 # ── Bottom tagline strip ──────────────────────────────────────────────────────
 draw.rectangle([0, H-52, W, H-8], fill=BROWN_DARK)
 bottom_font = ImageFont.truetype(FONT_BOLD, 22)
-bottom_text = "La app de banos publicos mas divertida"
+bottom_text = "La app de WC publicos mas divertida"
 btw = draw.textlength(bottom_text, font=bottom_font)
 draw.text(((W - btw) / 2, H-42), bottom_text, font=bottom_font, fill=GOLD)
 
