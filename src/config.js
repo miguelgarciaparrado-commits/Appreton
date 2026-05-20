@@ -22,7 +22,7 @@ export const GOOGLE_WEB_CLIENT_ID =
 // ── Google Maps / Places API ──────────────────────────────────────────────────
 // Google Cloud Console → APIs & Services → Credentials
 // Restringir por package com.miguelgp.appreton + SHA-1 antes de producción
-export const GOOGLE_PLACES_API_KEY = 'TU_GOOGLE_PLACES_API_KEY';
+export const GOOGLE_PLACES_API_KEY = 'AIzaSyAGsJx_0fUzJmVDA539E5zo_mDfLBvKRMA';
 
 // ── App constants ─────────────────────────────────────────────────────────────
 export const APP_PACKAGE = 'com.miguelgp.appreton';
