@@ -10,7 +10,8 @@
 // ── Supabase ──────────────────────────────────────────────────────────────────
 export const SUPABASE_URL = 'https://gcperiixkrrqoydfmned.supabase.co';
 // Anon key: Supabase → Project Settings → API → anon public
-export const SUPABASE_ANON_KEY = 'TU_SUPABASE_ANON_KEY';
+export const SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdjcGVyaWl4a3JycW95ZGZtbmVkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4NzkyMDAsImV4cCI6MjA5MDQ1NTIwMH0.M3ITmssduSTPEmX9NsxwhqnsUdiDQL9lAETt1NaoHhg';
 
 // ── Google Sign-In ────────────────────────────────────────────────────────────
 // Web Client ID (OAuth 2.0) — Google Cloud Console → Credentials
