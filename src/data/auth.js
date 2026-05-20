@@ -1,127 +1,40 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+// ─────────────────────────────────────────────────────────────────────────────
+// src/data/auth.js — Autenticación y perfil de usuario (APPreton)
+//
+// Flujos soportados:
+//   1. Google Sign-In nativo  → loginWithGoogleNative()
+//   2. Google OAuth (web)     → loginWithGoogleWeb()  [fallback]
+//   3. Email/contraseña       → loginWithEmail() / registerWithEmail()
+//
+// Persistencia: Supabase Auth + tabla user_profiles
+// ─────────────────────────────────────────────────────────────────────────────
 
-const AUTH_USER_KEY = '@appreton_auth_user';
-const ALL_USERS_KEY = '@appreton_all_users';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { supabase } from './supabase';
+import { GOOGLE_WEB_CLIENT_ID } from '../config';
 
-// Level definitions
+// ── Configurar Google Sign-In (llamar una vez al arrancar la app) ──────────────
+export function configureGoogleSignIn() {
+  GoogleSignin.configure({
+    webClientId: GOOGLE_WEB_CLIENT_ID,
+    offlineAccess: false,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NIVELES Y XP
+// ─────────────────────────────────────────────────────────────────────────────
+
 const LEVELS = [
-  { level: 1, title: 'Cagoncete', minXp: 0 },
-  { level: 2, title: 'Explorador de Banos', minXp: 100 },
-  { level: 3, title: 'Critico de Retretes', minXp: 250 },
-  { level: 4, title: 'Inspector de WC', minXp: 500 },
-  { level: 5, title: 'Maestro Cagador', minXp: 1000 },
-  { level: 6, title: 'Leyenda del Trono', minXp: 2000 },
+  { level: 1, title: 'Cagoncete',          minXp: 0    },
+  { level: 2, title: 'Explorador de WC',   minXp: 100  },
+  { level: 3, title: 'Critico de Retretes',minXp: 250  },
+  { level: 4, title: 'Inspector de WC',    minXp: 500  },
+  { level: 5, title: 'Maestro Cagador',    minXp: 1000 },
+  { level: 6, title: 'Leyenda del Trono',  minXp: 2000 },
 ];
 
 const XP_PER_REVIEW = 50;
-
-// Sample users for the ranking
-const SAMPLE_USERS = [
-  {
-    id: 'sample_1',
-    displayName: 'CacaMaster2000',
-    email: 'caca@mail.com',
-    provider: 'google',
-    avatarType: 'poop_3',
-    customAvatarUri: null,
-    level: 6,
-    xp: 2350,
-    totalReviews: 47,
-    joinDate: '2025-06-10',
-    isSample: true,
-  },
-  {
-    id: 'sample_2',
-    displayName: 'LaReinaDelBano',
-    email: 'reina@mail.com',
-    provider: 'instagram',
-    avatarType: 'poop_1',
-    customAvatarUri: null,
-    level: 5,
-    xp: 1450,
-    totalReviews: 29,
-    joinDate: '2025-08-22',
-    isSample: true,
-  },
-  {
-    id: 'sample_3',
-    displayName: 'InspectorRetrete',
-    email: 'inspector@mail.com',
-    provider: 'facebook',
-    avatarType: 'poop_5',
-    customAvatarUri: null,
-    level: 5,
-    xp: 1100,
-    totalReviews: 22,
-    joinDate: '2025-09-05',
-    isSample: true,
-  },
-  {
-    id: 'sample_4',
-    displayName: 'ElCriticoCagon',
-    email: 'critico@mail.com',
-    provider: 'apple',
-    avatarType: 'poop_2',
-    customAvatarUri: null,
-    level: 4,
-    xp: 750,
-    totalReviews: 15,
-    joinDate: '2025-10-12',
-    isSample: true,
-  },
-  {
-    id: 'sample_5',
-    displayName: 'TronoDeOro',
-    email: 'trono@mail.com',
-    provider: 'google',
-    avatarType: 'poop_6',
-    customAvatarUri: null,
-    level: 4,
-    xp: 550,
-    totalReviews: 11,
-    joinDate: '2025-11-01',
-    isSample: true,
-  },
-  {
-    id: 'sample_6',
-    displayName: 'BuscaBanos',
-    email: 'busca@mail.com',
-    provider: 'instagram',
-    avatarType: 'poop_4',
-    customAvatarUri: null,
-    level: 3,
-    xp: 300,
-    totalReviews: 6,
-    joinDate: '2025-12-15',
-    isSample: true,
-  },
-  {
-    id: 'sample_7',
-    displayName: 'NovataDelWC',
-    email: 'novata@mail.com',
-    provider: 'facebook',
-    avatarType: 'poop_1',
-    customAvatarUri: null,
-    level: 2,
-    xp: 150,
-    totalReviews: 3,
-    joinDate: '2026-01-20',
-    isSample: true,
-  },
-  {
-    id: 'sample_8',
-    displayName: 'PrimerizoCagon',
-    email: 'primerizo@mail.com',
-    provider: 'google',
-    avatarType: 'poop_3',
-    customAvatarUri: null,
-    level: 1,
-    xp: 50,
-    totalReviews: 1,
-    joinDate: '2026-03-01',
-    isSample: true,
-  },
-];
 
 export function getLevelInfo(xp) {
   let currentLevel = LEVELS[0];
@@ -132,9 +45,9 @@ export function getLevelInfo(xp) {
     }
   }
   const nextLevel = LEVELS.find((l) => l.level === currentLevel.level + 1);
-  const xpForNext = nextLevel ? nextLevel.minXp : null;
+  const xpForNext    = nextLevel ? nextLevel.minXp : null;
   const xpForCurrent = currentLevel.minXp;
-  const progress = nextLevel
+  const progress     = nextLevel
     ? (xp - xpForCurrent) / (xpForNext - xpForCurrent)
     : 1;
 
@@ -153,128 +66,277 @@ export function getAllLevels() {
   return LEVELS;
 }
 
-// Get current logged-in user
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS DE FECHA (con zona horaria local para evitar bug CEST/UTC)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function todayStr() {
+  // toLocaleDateString('sv-SE') devuelve YYYY-MM-DD en hora local
+  return new Date().toLocaleDateString('sv-SE');
+}
+
+function yesterdayStr() {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return d.toLocaleDateString('sv-SE');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PERFIL — leer / crear / actualizar en Supabase
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Lee el perfil del usuario autenticado desde user_profiles.
+ * Si no existe aún, lo crea con valores por defecto.
+ */
+export async function getOrCreateProfile(supabaseUser) {
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .eq('id', supabaseUser.id)
+    .single();
+
+  if (error && error.code !== 'PGRST116') {
+    // PGRST116 = "no rows returned" → hay que crear el perfil
+    throw error;
+  }
+
+  if (data) return data;
+
+  // Crear perfil nuevo
+  const newProfile = {
+    id: supabaseUser.id,
+    email: supabaseUser.email,
+    display_name: supabaseUser.user_metadata?.full_name || '',
+    avatar_type: 'poop_1',
+    custom_avatar_uri: null,
+    xp: 0,
+    level: 1,
+    total_reviews: 0,
+    streak: 0,
+    last_active_date: todayStr(),
+    join_date: todayStr(),
+    profile_completed: false,
+  };
+
+  const { data: created, error: createError } = await supabase
+    .from('user_profiles')
+    .insert(newProfile)
+    .select()
+    .single();
+
+  if (createError) throw createError;
+  return created;
+}
+
+/**
+ * Devuelve el usuario actual (sesión Supabase + perfil) o null.
+ */
 export async function getCurrentUser() {
   try {
-    const data = await AsyncStorage.getItem(AUTH_USER_KEY);
-    return data ? JSON.parse(data) : null;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return null;
+
+    const profile = await getOrCreateProfile(session.user);
+    return { ...profile, supabaseUser: session.user };
   } catch {
     return null;
   }
 }
 
-// Mock login - simulates OAuth by creating a user record
-export async function loginWithProvider(provider) {
-  const userId = 'user_' + Date.now().toString();
-  const user = {
-    id: userId,
-    displayName: '',
-    email: `${provider}_user_${Date.now()}@appreton.app`,
-    provider,
-    avatarType: 'poop_1',
-    customAvatarUri: null,
-    level: 1,
-    xp: 0,
-    totalReviews: 0,
-    joinDate: new Date().toISOString().split('T')[0],
-    profileCompleted: false,
-  };
-  await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
-  // Also add to all users list
-  await addOrUpdateUserInList(user);
-  return user;
-}
-
-// Save/update user profile
+/**
+ * Actualiza campos del perfil en Supabase y devuelve el perfil actualizado.
+ */
 export async function saveUserProfile(updates) {
-  const user = await getCurrentUser();
-  if (!user) return null;
-  const updated = { ...user, ...updates };
-  // Recalculate level from XP
-  const levelInfo = getLevelInfo(updated.xp);
-  updated.level = levelInfo.level;
-  await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(updated));
-  await addOrUpdateUserInList(updated);
-  return updated;
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return null;
+
+  // Recalcular nivel si viene xp en los updates
+  const extraUpdates = {};
+  if (updates.xp !== undefined) {
+    extraUpdates.level = getLevelInfo(updates.xp).level;
+  }
+
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .update({ ...updates, ...extraUpdates })
+    .eq('id', session.user.id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
 }
 
-// Logout
-export async function logout() {
-  await AsyncStorage.removeItem(AUTH_USER_KEY);
+// ─────────────────────────────────────────────────────────────────────────────
+// RACHA DIARIA
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Actualiza la racha del usuario al abrir la app.
+ * Devuelve { streak, isNewDay } para mostrar feedback si corresponde.
+ */
+export async function updateDailyStreak() {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return null;
+
+    const today     = todayStr();
+    const yesterday = yesterdayStr();
+    const lastActive = user.last_active_date;
+
+    if (lastActive === today) {
+      // Ya se registró hoy — no cambiar nada
+      return { streak: user.streak, isNewDay: false };
+    }
+
+    const newStreak = lastActive === yesterday
+      ? (user.streak || 0) + 1  // Racha consecutiva
+      : 1;                       // Racha rota → reiniciar a 1
+
+    await saveUserProfile({
+      streak: newStreak,
+      last_active_date: today,
+    });
+
+    return { streak: newStreak, isNewDay: true };
+  } catch {
+    return null;
+  }
 }
 
-// Add XP to the current user (called after a review)
+// ─────────────────────────────────────────────────────────────────────────────
+// XP
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Suma XP al usuario tras publicar una reseña.
+ * Devuelve { user, levelInfo, leveledUp }.
+ */
 export async function addXpToUser() {
   const user = await getCurrentUser();
   if (!user) return null;
-  const newXp = (user.xp || 0) + XP_PER_REVIEW;
-  const newTotalReviews = (user.totalReviews || 0) + 1;
-  const levelInfo = getLevelInfo(newXp);
-  const updated = {
-    ...user,
+
+  const newXp          = (user.xp || 0) + XP_PER_REVIEW;
+  const newTotalReviews = (user.total_reviews || 0) + 1;
+  const levelInfo      = getLevelInfo(newXp);
+
+  const updated = await saveUserProfile({
     xp: newXp,
-    totalReviews: newTotalReviews,
+    total_reviews: newTotalReviews,
     level: levelInfo.level,
+  });
+
+  return {
+    user: updated,
+    levelInfo,
+    leveledUp: levelInfo.level > (user.level || 1),
   };
-  await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(updated));
-  await addOrUpdateUserInList(updated);
-  return { user: updated, levelInfo, leveledUp: levelInfo.level > user.level };
 }
 
-// Internal: maintain a list of all users for ranking
-async function addOrUpdateUserInList(user) {
-  try {
-    const data = await AsyncStorage.getItem(ALL_USERS_KEY);
-    let users = data ? JSON.parse(data) : [];
-    const index = users.findIndex((u) => u.id === user.id);
-    // Only store ranking-relevant fields
-    const entry = {
-      id: user.id,
-      displayName: user.displayName,
-      avatarType: user.avatarType,
-      customAvatarUri: user.customAvatarUri,
-      level: user.level,
-      xp: user.xp,
-      totalReviews: user.totalReviews,
-      isSample: user.isSample || false,
-    };
-    if (index !== -1) {
-      users[index] = entry;
-    } else {
-      users.push(entry);
-    }
-    await AsyncStorage.setItem(ALL_USERS_KEY, JSON.stringify(users));
-  } catch {
-    // ignore
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTENTICACIÓN — Google Sign-In nativo
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Login con Google Sign-In nativo (flujo recomendado en producción).
+ * Requiere @react-native-google-signin/google-signin y google-services.json.
+ *
+ * Flujo:
+ *   GoogleSignin.signIn() → idToken → supabase.signInWithIdToken()
+ */
+export async function loginWithGoogleNative() {
+  await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+
+  const userInfo = await GoogleSignin.signIn();
+  const idToken  = userInfo.data?.idToken ?? userInfo.idToken;
+
+  if (!idToken) throw new Error('No se recibió idToken de Google');
+
+  const { data, error } = await supabase.auth.signInWithIdToken({
+    provider: 'google',
+    token: idToken,
+  });
+
+  if (error) throw error;
+
+  const profile = await getOrCreateProfile(data.user);
+  await updateDailyStreak();
+  return profile;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTENTICACIÓN — Google OAuth web (fallback)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Login con Google OAuth vía navegador (fallback si el nativo falla).
+ * Abre el navegador externo y redirige de vuelta a la app.
+ */
+export async function loginWithGoogleWeb() {
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: 'com.miguelgp.appreton://auth/callback',
+    },
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTENTICACIÓN — Email / contraseña
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function loginWithEmail(email, password) {
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw error;
+
+  const profile = await getOrCreateProfile(data.user);
+  await updateDailyStreak();
+  return profile;
+}
+
+export async function registerWithEmail(email, password) {
+  const { data, error } = await supabase.auth.signUp({ email, password });
+  if (error) throw error;
+
+  // signUp puede devolver user sin sesión si hay confirmación por email pendiente
+  if (!data.session) {
+    return { pendingEmailConfirmation: true };
   }
+
+  const profile = await getOrCreateProfile(data.user);
+  return profile;
 }
 
-// Get all users for ranking (includes sample users)
+// ─────────────────────────────────────────────────────────────────────────────
+// LOGOUT
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function logout() {
+  try {
+    await GoogleSignin.signOut();
+  } catch {
+    // Google puede no tener sesión activa — ignorar
+  }
+  await supabase.auth.signOut();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RANKING — usuarios para la tabla de clasificación
+// ─────────────────────────────────────────────────────────────────────────────
+
 export async function getAllUsersForRanking() {
-  try {
-    const data = await AsyncStorage.getItem(ALL_USERS_KEY);
-    let users = data ? JSON.parse(data) : [];
-    // Ensure sample users exist
-    const hasSamples = users.some((u) => u.isSample);
-    if (!hasSamples) {
-      const sampleEntries = SAMPLE_USERS.map((u) => ({
-        id: u.id,
-        displayName: u.displayName,
-        avatarType: u.avatarType,
-        customAvatarUri: u.customAvatarUri,
-        level: u.level,
-        xp: u.xp,
-        totalReviews: u.totalReviews,
-        isSample: true,
-      }));
-      users = [...users, ...sampleEntries];
-      await AsyncStorage.setItem(ALL_USERS_KEY, JSON.stringify(users));
-    }
-    // Sort by XP descending
-    return users
-      .filter((u) => u.displayName && u.displayName.length > 0)
-      .sort((a, b) => b.xp - a.xp);
-  } catch {
-    return [];
-  }
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('id, display_name, avatar_type, custom_avatar_uri, level, xp, total_reviews')
+    .not('display_name', 'is', null)
+    .neq('display_name', '')
+    .order('xp', { ascending: false })
+    .limit(100);
+
+  if (error) return [];
+  return data;
 }

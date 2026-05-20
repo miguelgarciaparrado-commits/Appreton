@@ -13,15 +13,15 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.appreton.app"
+      "bundleIdentifier": "com.miguelgp.appreton"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#8B6914"
       },
-      "package": "com.appreton.app",
-      "versionCode": 1,
+      "package": "com.miguelgp.appreton",
+      "versionCode": 4,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
