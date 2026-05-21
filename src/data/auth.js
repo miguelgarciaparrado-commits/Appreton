@@ -104,6 +104,7 @@ export async function getOrCreateProfile(supabaseUser) {
   if (data) return data;
 
   // Crear perfil nuevo
+  // ⚠️  current_streak e last_review_date a null/0 — nunca inicializar streak a 1
   const newProfile = {
     id: supabaseUser.id,
     email: supabaseUser.email,
@@ -113,7 +114,8 @@ export async function getOrCreateProfile(supabaseUser) {
     xp: 0,
     level: 1,
     total_reviews: 0,
-    streak: 0,
+    current_streak: 0,       // Era "streak" — renombrado a current_streak
+    last_review_date: null,  // null = nunca ha opinado
     last_active_date: todayStr(),
     join_date: todayStr(),
     profile_completed: false,
@@ -173,29 +175,71 @@ export async function saveUserProfile(updates) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Actualiza la racha del usuario al abrir la app.
- * Devuelve { streak, isNewDay } para mostrar feedback si corresponde.
+ * Calcula el nuevo estado de la racha basándose en la última reseña del usuario.
+ * Es una función pura (no toca Supabase) — se puede llamar antes de guardar.
+ *
+ * @param {object} user  Perfil del usuario con campos last_review_date y current_streak
+ * @returns {{ isFirstOfDay: boolean, newStreak: number, newLastReviewDate: string }}
+ *
+ * Casos:
+ *   - last_review_date null/vacío → primera reseña ever → streak = 1
+ *   - last_review_date === hoy   → ya opinó hoy → sin cambio
+ *   - last_review_date === ayer  → racha consecutiva → streak + 1
+ *   - cualquier otra fecha       → racha rota → streak = 1
+ */
+export function computeDailyProgress(user) {
+  const today = todayStr();
+  const last  = user?.last_review_date ?? null;
+
+  // Sin historial previo: primera reseña ever → streak comienza en 1
+  if (!last) {
+    return { isFirstOfDay: true, newStreak: 1, newLastReviewDate: today };
+  }
+
+  // Ya opinó hoy → no cambiar nada
+  if (last === today) {
+    return {
+      isFirstOfDay: false,
+      newStreak: user?.current_streak || 1,
+      newLastReviewDate: today,
+    };
+  }
+
+  // Calcular si la última reseña fue ayer (racha consecutiva) o antes (rota)
+  const yday      = yesterdayStr();
+  const newStreak = last === yday ? (user?.current_streak || 0) + 1 : 1;
+
+  return { isFirstOfDay: true, newStreak, newLastReviewDate: today };
+}
+
+/**
+ * Actualiza la racha al abrir la app (basada en last_active_date).
+ * ⚠️  Esto solo registra que el usuario abrió la app — NO actualiza la racha
+ *     de reseñas. Para la racha de reseñas usa computeDailyProgress() desde addXpToUser().
+ *
+ * Fix: lastActive null → streak queda en 0, no salta a 1.
  */
 export async function updateDailyStreak() {
   try {
     const user = await getCurrentUser();
     if (!user) return null;
 
-    const today     = todayStr();
-    const yesterday = yesterdayStr();
-    const lastActive = user.last_active_date;
+    const today      = todayStr();
+    const yesterday  = yesterdayStr();
+    const lastActive = user.last_active_date ?? null;
 
+    // Ya se registró hoy — no cambiar nada
     if (lastActive === today) {
-      // Ya se registró hoy — no cambiar nada
-      return { streak: user.streak, isNewDay: false };
+      return { streak: user.current_streak ?? 0, isNewDay: false };
     }
 
+    // Fix: null o fecha muy antigua → NO incrementar, solo registrar apertura
     const newStreak = lastActive === yesterday
-      ? (user.streak || 0) + 1  // Racha consecutiva
-      : 1;                       // Racha rota → reiniciar a 1
+      ? (user.current_streak || 0) + 1   // Racha consecutiva
+      : (user.current_streak || 0);       // Sin racha — mantener valor actual
 
     await saveUserProfile({
-      streak: newStreak,
+      current_streak:   newStreak,
       last_active_date: today,
     });
 
@@ -211,26 +255,33 @@ export async function updateDailyStreak() {
 
 /**
  * Suma XP al usuario tras publicar una reseña.
- * Devuelve { user, levelInfo, leveledUp }.
+ * También actualiza la racha diaria basada en last_review_date.
+ * Devuelve { user, levelInfo, leveledUp, streakInfo }.
  */
 export async function addXpToUser() {
   const user = await getCurrentUser();
   if (!user) return null;
 
-  const newXp          = (user.xp || 0) + XP_PER_REVIEW;
+  const newXp           = (user.xp || 0) + XP_PER_REVIEW;
   const newTotalReviews = (user.total_reviews || 0) + 1;
-  const levelInfo      = getLevelInfo(newXp);
+  const levelInfo       = getLevelInfo(newXp);
+
+  // Calcular racha basada en reviews (no en aperturas de app)
+  const { newStreak, newLastReviewDate, isFirstOfDay } = computeDailyProgress(user);
 
   const updated = await saveUserProfile({
     xp: newXp,
     total_reviews: newTotalReviews,
     level: levelInfo.level,
+    current_streak:  newStreak,
+    last_review_date: newLastReviewDate,
   });
 
   return {
     user: updated,
     levelInfo,
-    leveledUp: levelInfo.level > (user.level || 1),
+    leveledUp:  levelInfo.level > (user.level || 1),
+    streakInfo: { newStreak, isFirstOfDay },
   };
 }
 
@@ -260,9 +311,12 @@ export async function loginWithGoogleNative() {
 
   if (error) throw error;
 
-  const profile = await getOrCreateProfile(data.user);
-  await updateDailyStreak();
-  return profile;
+  await getOrCreateProfile(data.user);
+  // updateDailyStreak actualiza last_active_date y devuelve el perfil fresco
+  const streakResult = await updateDailyStreak();
+  // Devolver perfil actualizado (con current_streak correcto)
+  const freshProfile = await getCurrentUser();
+  return { ...freshProfile, _streakResult: streakResult };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -293,9 +347,10 @@ export async function loginWithEmail(email, password) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
 
-  const profile = await getOrCreateProfile(data.user);
-  await updateDailyStreak();
-  return profile;
+  await getOrCreateProfile(data.user);
+  const streakResult = await updateDailyStreak();
+  const freshProfile = await getCurrentUser();
+  return { ...freshProfile, _streakResult: streakResult };
 }
 
 export async function registerWithEmail(email, password) {
@@ -323,6 +378,20 @@ export async function logout() {
   }
   await supabase.auth.signOut();
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NOTA T5 — Banner 🔥 racha
+// ─────────────────────────────────────────────────────────────────────────────
+// El banner debe leer user.current_streak (no user.streak).
+// Solo mostrarlo si current_streak >= 1:
+//
+//   {user.current_streak >= 1 && (
+//     <Text>🔥 Racha de {user.current_streak} día(s)</Text>
+//   )}
+//
+// El archivo donde está el banner NO está sincronizado en este repo.
+// Aplica este cambio en el componente correspondiente en Windows.
+// ─────────────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RANKING — usuarios para la tabla de clasificación
