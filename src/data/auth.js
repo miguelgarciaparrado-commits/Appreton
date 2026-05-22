@@ -189,35 +189,35 @@ export async function saveUserProfile(updates) {
  */
 export function computeDailyProgress(user) {
   const today = todayStr();
+  const yday  = yesterdayStr();
   const last  = user?.last_review_date ?? null;
+  const prevStreak = user?.current_streak ?? 0;
+
+  console.log('[STREAK] computeDailyProgress →', { last, today, yday, prevStreak });
 
   // Sin historial previo: primera reseña ever → streak comienza en 1
   if (!last) {
+    console.log('[STREAK] Primera reseña ever → streak 1');
     return { isFirstOfDay: true, newStreak: 1, newLastReviewDate: today };
   }
 
   // Ya opinó hoy → no cambiar nada
   if (last === today) {
-    return {
-      isFirstOfDay: false,
-      newStreak: user?.current_streak || 1,
-      newLastReviewDate: today,
-    };
+    console.log('[STREAK] Ya opinó hoy → sin cambio, streak =', prevStreak);
+    return { isFirstOfDay: false, newStreak: prevStreak, newLastReviewDate: today };
   }
 
-  // Calcular si la última reseña fue ayer (racha consecutiva) o antes (rota)
-  const yday      = yesterdayStr();
-  const newStreak = last === yday ? (user?.current_streak || 0) + 1 : 1;
+  // Racha consecutiva o rota
+  const newStreak = last === yday ? prevStreak + 1 : 1;
+  console.log('[STREAK] last===yday?', last === yday, '→ newStreak =', newStreak);
 
   return { isFirstOfDay: true, newStreak, newLastReviewDate: today };
 }
 
 /**
- * Actualiza la racha al abrir la app (basada en last_active_date).
- * ⚠️  Esto solo registra que el usuario abrió la app — NO actualiza la racha
- *     de reseñas. Para la racha de reseñas usa computeDailyProgress() desde addXpToUser().
- *
- * Fix: lastActive null → streak queda en 0, no salta a 1.
+ * Registra que el usuario abrió la app hoy (actualiza last_active_date).
+ * ⚠️  NO toca current_streak — el streak solo lo actualiza addXpToUser()
+ *     cuando se publica una reseña.
  */
 export async function updateDailyStreak() {
   try {
@@ -225,26 +225,28 @@ export async function updateDailyStreak() {
     if (!user) return null;
 
     const today      = todayStr();
-    const yesterday  = yesterdayStr();
     const lastActive = user.last_active_date ?? null;
+
+    console.log('[STREAK] updateDailyStreak →', {
+      lastActive,
+      today,
+      current_streak: user.current_streak,
+      last_review_date: user.last_review_date,
+    });
 
     // Ya se registró hoy — no cambiar nada
     if (lastActive === today) {
+      console.log('[STREAK] Ya abrió hoy — sin cambio');
       return { streak: user.current_streak ?? 0, isNewDay: false };
     }
 
-    // Fix: null o fecha muy antigua → NO incrementar, solo registrar apertura
-    const newStreak = lastActive === yesterday
-      ? (user.current_streak || 0) + 1   // Racha consecutiva
-      : (user.current_streak || 0);       // Sin racha — mantener valor actual
+    // Solo actualizamos last_active_date — NO tocamos current_streak
+    await saveUserProfile({ last_active_date: today });
+    console.log('[STREAK] last_active_date actualizado a', today);
 
-    await saveUserProfile({
-      current_streak:   newStreak,
-      last_active_date: today,
-    });
-
-    return { streak: newStreak, isNewDay: true };
-  } catch {
+    return { streak: user.current_streak ?? 0, isNewDay: true };
+  } catch (e) {
+    console.warn('[STREAK] updateDailyStreak error:', e?.message);
     return null;
   }
 }
@@ -269,13 +271,17 @@ export async function addXpToUser() {
   // Calcular racha basada en reviews (no en aperturas de app)
   const { newStreak, newLastReviewDate, isFirstOfDay } = computeDailyProgress(user);
 
+  console.log('[STREAK] addXpToUser → guardando current_streak =', newStreak, ', last_review_date =', newLastReviewDate);
+
   const updated = await saveUserProfile({
     xp: newXp,
     total_reviews: newTotalReviews,
     level: levelInfo.level,
-    current_streak:  newStreak,
+    current_streak: newStreak,
     last_review_date: newLastReviewDate,
   });
+
+  console.log('[STREAK] guardado OK → current_streak en DB =', updated?.current_streak);
 
   return {
     user: updated,
