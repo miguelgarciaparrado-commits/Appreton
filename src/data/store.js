@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { addXpToUser, getCurrentUser } from './auth';
+import { supabase } from './supabase';
 
 const PLACES_KEY = '@appreton_places';
 const REVIEWS_KEY = '@appreton_reviews';
@@ -143,11 +144,18 @@ export async function getPlaces() {
 export async function getReviews(placeId) {
   try {
     const data = await AsyncStorage.getItem(REVIEWS_KEY);
-    const reviews = data ? JSON.parse(data) : SAMPLE_REVIEWS;
+    let reviews = data ? JSON.parse(data) : SAMPLE_REVIEWS;
     if (!data) {
       await AsyncStorage.setItem(REVIEWS_KEY, JSON.stringify(SAMPLE_REVIEWS));
     }
-    if (placeId) return reviews.filter((r) => r.placeId === placeId);
+    if (placeId) reviews = reviews.filter((r) => r.placeId === placeId);
+
+    // T6 — excluir reviews de usuarios bloqueados
+    const blockedIds = await getBlockedUserIds();
+    if (blockedIds.length > 0) {
+      reviews = reviews.filter((r) => !blockedIds.includes(r.userId));
+    }
+
     return reviews;
   } catch {
     return SAMPLE_REVIEWS.filter((r) => !placeId || r.placeId === placeId);
@@ -195,4 +203,77 @@ export async function addReview(review) {
   await addXpToUser();
 
   return newReview;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// T2 — Reportar opinión
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function reportReview(reviewId, reason) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Debes iniciar sesion para reportar');
+
+  const { error } = await supabase.from('review_reports').insert({
+    review_id: reviewId,
+    reporter_id: session.user.id,
+    reason,
+  });
+
+  if (error) {
+    if (error.code === '23505') throw new Error('Ya has reportado esta opinion');
+    throw new Error(error.message);
+  }
+
+  // Auto-moderar: 3 reportes → pending_review
+  const { data: reports } = await supabase
+    .from('review_reports')
+    .select('id')
+    .eq('review_id', reviewId);
+
+  if (reports && reports.length >= 3) {
+    await supabase
+      .from('reviews')
+      .update({ moderation_status: 'pending_review' })
+      .eq('id', reviewId);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// T5 — Bloquear / desbloquear usuario
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function blockUser(blockedId) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Debes iniciar sesion');
+  if (session.user.id === blockedId) throw new Error('No puedes bloquearte a ti mismo');
+
+  const { error } = await supabase.from('blocked_users').insert({
+    blocker_id: session.user.id,
+    blocked_id: blockedId,
+  });
+
+  if (error && error.code !== '23505') throw new Error(error.message);
+}
+
+export async function unblockUser(blockedId) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return;
+
+  await supabase
+    .from('blocked_users')
+    .delete()
+    .eq('blocker_id', session.user.id)
+    .eq('blocked_id', blockedId);
+}
+
+export async function getBlockedUserIds() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return [];
+
+  const { data } = await supabase
+    .from('blocked_users')
+    .select('blocked_id')
+    .eq('blocker_id', session.user.id);
+
+  return data ? data.map((r) => r.blocked_id) : [];
 }
